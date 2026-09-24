@@ -1,0 +1,7 @@
+,value
+accuracy,0.9076
+balanced_accuracy,0.8199
+macro_f1,0.8118
+weighted_f1,0.9086
+negative_recall,0.8818
+training_seconds,33.7559

@@ -1,0 +1,13 @@
+# Theme that matches app/ui.py so native widgets (sliders, checkboxes,
+# multiselect chips, spinners) use forest green instead of Streamlit red,
+# and the app never flips into dark mode, which the custom CSS doesn't support.
+[theme]
+base = "light"
+primaryColor = "#05402B"
+backgroundColor = "#F7F5EF"
+secondaryBackgroundColor = "#EEF2EC"
+textColor = "#183027"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"

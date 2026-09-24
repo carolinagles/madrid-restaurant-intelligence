@@ -1,0 +1,79 @@
+{
+    "project": "Restaurant reputation diagnosis and competitive benchmarking in Madrid",
+    "files": {
+        "modeling_corpus": "modeling_corpus.parquet",
+        "restaurant_diagnostics": "restaurant_diagnostics.parquet",
+        "benchmark_membership": "benchmark_membership.parquet",
+        "benchmark_groups": "benchmark_groups.parquet"
+    },
+    "sentiment": {
+        "target": "sentiment",
+        "predictor": "review_text",
+        "classes": [
+            "Negative",
+            "Neutral",
+            "Positive"
+        ],
+        "rating_mapping": {
+            "Negative": [
+                1,
+                2
+            ],
+            "Neutral": [
+                3
+            ],
+            "Positive": [
+                4,
+                5
+            ]
+        }
+    },
+    "split": {
+        "method": "StratifiedGroupKFold",
+        "group": "item_id",
+        "test_random_state": 42,
+        "validation_random_state": 43,
+        "approximate_proportions": {
+            "train": 0.8,
+            "validation": 0.1,
+            "test": 0.1
+        }
+    },
+    "benchmarking": {
+        "minimum_restaurants": 30,
+        "minimum_reviews": 1000
+    },
+    "historical_diagnosis": {
+        "minimum_reviews_per_restaurant": 30
+    },
+    "temporal_alert": {
+        "as_of_date": "2023-05-31",
+        "last_observed_review_date": "2023-06-10",
+        "historical_snapshot": true,
+        "window_months": 6,
+        "minimum_reviews_per_window": 5,
+        "higher_support_reviews": 10,
+        "watch": {
+            "maximum_rating_change": -0.4,
+            "minimum_negative_change": 10.0
+        },
+        "high_alert": {
+            "maximum_rating_change": -0.8,
+            "minimum_negative_change": 20.0
+        },
+        "critical_alert": {
+            "maximum_rating_change": -1.0,
+            "minimum_negative_change": 30.0
+        }
+    },
+    "excluded_predictors": [
+        "review_rating",
+        "restaurant_rating",
+        "price_interval",
+        "specialty",
+        "language",
+        "date",
+        "item_id",
+        "review_id"
+    ]
+}

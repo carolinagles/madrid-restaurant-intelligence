@@ -1,0 +1,31 @@
+# --- Data: ignore everything except the files the app needs ---
+data/*
+!data/restaurant_diagnostics.parquet
+!data/benchmark_membership.parquet
+!data/benchmark_groups.parquet
+!data/restaurant_review_aspects_EN.parquet
+!data/alert_backtest_summary.parquet
+!data/project_config.json
+# Raw data and modeling_corpus.parquet (~270 MB) come from Zenodo; see README.
+
+# --- Artifacts: keep the model and the metrics, not the MLflow store ---
+artifacts/*
+!artifacts/models/
+!artifacts/metrics/
+mlruns/
+
+# --- Python and notebooks ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+
+# --- Editors and macOS ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- Exported notebooks ---
+*.html
