@@ -14,8 +14,11 @@ from app.benchmarking import (build_executive_summary, get_restaurant_groups,
 from app.explainability import explain_sentiment
 from app.inference import predict_sentiment
 from app.insights import ACTIONS, prepare_aspects, render_restaurant_insights
+import numpy as np
+
 from app.ui import (COLORS, FULL_WIDTH, apply_style, glass_container, render_data_note,
-                    render_footer, render_header, render_sidebar_brand, show_chart)
+                    render_footer, render_header, render_sidebar_brand, render_spectrum,
+                    show_chart, spectrum_html)
 
 ROOT_PATH = Path(__file__).resolve().parent
 DATA_PATH = ROOT_PATH / 'data'
@@ -36,7 +39,9 @@ PAGE_SUBTITLES = {
 
 # Results from notebook 3: final test on restaurants never used in development.
 MODEL_FACTS = {'accuracy': '90.5%', 'macro_f1': '0.81', 'baseline_accuracy': '75.7%',
-               'negative_recall': '88%', 'test_restaurants': 996, 'raw_reviews': '1.34 million'}
+               'baseline_macro_f1': '0.29', 'negative_recall': '0.88', 'test_restaurants': 996,
+               'test_reviews': '110,912', 'raw_reviews': '1.34 million', 'features': '60,000',
+               'c_value': '0.05'}
 JOURNEY_REVIEW = 'Tardaron una hora en traer los platos y llegaron fríos.'
 JOURNEY_THEME = 'Waiting time'
 
@@ -147,21 +152,40 @@ def go_to(page):
     st.session_state['active_page'] = page
 
 
+def sentiment_position(decision_scores):
+    """Place a review on the Negative (0) to Positive (1) spectrum.
+
+    Softmax of the decision scores, then Neutral counts as 0.5. A relative display
+    position, not a calibrated probability.
+    """
+    labels = ['Negative', 'Neutral', 'Positive']
+    scores = np.array([float(decision_scores.get(label, 0.0)) for label in labels])
+    weights = np.exp(scores - scores.max())
+    weights /= weights.sum()
+    return float(weights[1] * 0.5 + weights[2])
+
+
 @st.cache_data(show_spinner=False)
 def classify_example(text):
     """Run the real model on the hero example; fall back quietly if it is unavailable."""
     try:
-        return str(predict_sentiment(text)['sentiment'])
+        result = predict_sentiment(text)
     except Exception:  # model file missing on a demo laptop: the page must still render
-        return None
+        return {'label': 'Negative', 'position': 0.08, 'milliseconds': None}
+    return {'label': str(result['sentiment']),
+            'position': sentiment_position(result['decision_scores']),
+            'milliseconds': result.get('prediction_milliseconds')}
 
 
 def render_overview(diagnostics, groups, note):
     """One screen that explains the whole project to a mixed audience."""
     restaurants = diagnostics['item_id'].nunique()
     reviews = int(diagnostics['reviews'].sum())
-    label = classify_example(JOURNEY_REVIEW) or 'Negative'
+    example = classify_example(JOURNEY_REVIEW)
+    label = example['label']
     action = ACTIONS[JOURNEY_THEME][0]
+    lens = spectrum_html(example['position'],
+                         aria_label=f'The model places this review near {label}')
 
     st.markdown(f"""
 <section class="hero glass">
@@ -169,8 +193,8 @@ def render_overview(diagnostics, groups, note):
     <p class="hero__brand"><b>Madrid</b> Restaurant Intelligence</p>
     <h1>Customer reviews, turned into the next decision.</h1>
     <p class="hero__lede">We read {reviews:,} TripAdvisor reviews of {restaurants:,} Madrid
-    restaurants, in Spanish and English. For any restaurant, the app shows where it stands,
-    how it compares with similar places and what to check first.</p>
+    restaurants, in Spanish and English. Owners see where they stand and what to fix first;
+    engineers see a model they can audit, word by word.</p>
   </div>
   <figure class="journey" aria-label="How one review moves through the system">
     <figcaption>One real review, end to end</figcaption>
@@ -178,7 +202,7 @@ def render_overview(diagnostics, groups, note):
       <li><span class="journey__who">A guest writes</span>
           <q>{escape(JOURNEY_REVIEW)}</q></li>
       <li><span class="journey__who">The model reads the sentiment</span>
-          <span class="chip chip--{label.lower()}">{escape(label)}</span></li>
+          <span class="chip chip--{label.lower()}">{escape(label)}</span>{lens}</li>
       <li><span class="journey__who">The theme is detected</span>
           <span class="journey__what">{escape(JOURNEY_THEME)}</span></li>
       <li><span class="journey__who">The owner gets a concrete check</span>
@@ -214,20 +238,37 @@ def render_overview(diagnostics, groups, note):
     <p>Each restaurant gets a diagnosis, a fair comparison with peers of the same cuisine and
     price, historical warning signals and a short, ranked action plan.</p></article>
 </div>
+""", unsafe_allow_html=True)
+
+    latency = (f"{example['milliseconds']:.1f} ms" if example['milliseconds']
+               else 'Under 1 ms')
+    st.markdown(f"""
+<div class="section-head"><h2>Model card</h2>
+<p>For the engineers in the room: what the model is, how it was tested and what it costs to run.</p></div>
+<section class="model-card glass"><dl>
+  <div><dt>Architecture</dt><dd>TF-IDF to LinearSVC
+       <small>{MODEL_FACTS['features']} word and bigram features, Spanish and English, C = {MODEL_FACTS['c_value']}</small></dd></div>
+  <div><dt>Evaluation</dt><dd>Split by restaurant
+       <small>{MODEL_FACTS['test_restaurants']} held-out restaurants, {MODEL_FACTS['test_reviews']} reviews, zero overlap</small></dd></div>
+  <div><dt>Test results</dt><dd>Macro F1 {MODEL_FACTS['macro_f1']}
+       <small>Negative recall {MODEL_FACTS['negative_recall']}; majority baseline {MODEL_FACTS['baseline_macro_f1']}</small></dd></div>
+  <div><dt>Serving</dt><dd>{latency} per review
+       <small>Measured live; exact word attributions; FastAPI endpoint</small></dd></div>
+</dl></section>
 <div class="section-head"><h2>Choose your starting point</h2>
 <p>The same data answers a different question for each person in the room.</p></div>
 """, unsafe_allow_html=True)
 
     audiences = [
         ('owners', 'Restaurant owners',
-         'See where you stand against similar restaurants, what guests complain about '
-         'and which three things to check first.', 'Diagnose a restaurant', PAGE_DIAGNOSIS),
-        ('data', 'Data and analytics teams',
-         'Peer groups, volume-adjusted rankings and alert thresholds that you can audit '
-         'line by line.', 'Explore the market', PAGE_MARKET),
-        ('developers', 'Developers',
-         'One saved scikit-learn pipeline behind this app and a FastAPI endpoint, with exact '
-         'word-level explanations.', 'Try the classifier', PAGE_CLASSIFIER),
+         'Where your restaurant stands, what guests complain about and the three things '
+         'to check first.', 'Diagnose a restaurant', PAGE_DIAGNOSIS),
+        ('groups', 'Restaurant groups and investors',
+         'Benchmark any cuisine and price range, find leaders and spot venues whose '
+         'reputation is slipping.', 'Explore the market', PAGE_MARKET),
+        ('ml', 'ML engineers',
+         'Type a review and inspect the decision: class scores, margin and the exact '
+         'contribution of every word.', 'Inspect the model', PAGE_CLASSIFIER),
     ]
     for column, (key, title, text, button, target) in zip(st.columns(3), audiences):
         with column:
@@ -287,6 +328,12 @@ def render_classifier():
     label = str(result['sentiment'])
     message = f'Predicted label: **{label}**'
     {'Positive': st.success, 'Negative': st.error}.get(label, st.info)(message)
+    scores = explanation.get('class_scores') or result.get('decision_scores', {})
+    if scores:
+        render_spectrum(sentiment_position(scores),
+                        value_label='Where this review sits <small>relative position from the '
+                                    'three class scores, not a probability</small>',
+                        aria_label=f'Predicted {label}')
 
     metrics = st.columns(3)
     metrics[0].metric('Decision score', fmt(explanation.get('decision_score'), 3),
@@ -393,6 +440,20 @@ def render_overview_tab(restaurant, restaurant_groups, config):
     indicators[1].metric('Average review rating', fmt(rating, 2, ' / 5') if pd.notna(rating) else 'Unavailable')
     indicators[2].metric('Positive reviews', fmt(restaurant['positive_percentage'], 1, '%'))
     indicators[3].metric('Negative reviews', fmt(restaurant['negative_percentage'], 1, '%'))
+
+    if pd.notna(rating):
+        peer_rating = None
+        if not restaurant_groups.empty:
+            group = restaurant_groups.sort_values('group_restaurants', ascending=False).iloc[0]
+            if pd.notna(group['peer_mean_rating']):
+                peer_rating = float(group['peer_mean_rating'])
+        render_spectrum(
+            (float(rating) - 1) / 4, low_label='1 star', high_label='5 stars',
+            value_label=f'{rating:.2f} average rating <small>out of 5, from '
+                        f'{fmt_int(restaurant["reviews"])} reviews</small>',
+            marker=None if peer_rating is None else (peer_rating - 1) / 4,
+            marker_label=None if peer_rating is None else f'Peers {peer_rating:.2f}',
+            aria_label=f'Average rating {rating:.2f} out of 5')
 
     st.info(build_executive_summary(restaurant, restaurant_groups))
 

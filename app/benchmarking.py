@@ -5,7 +5,7 @@ import streamlit as st
 
 from app.ui import COLORS, FULL_WIDTH, show_chart
 
-FOREST = COLORS['forest']
+FOREST = COLORS.get('blue', COLORS['forest'])  # the selected restaurant and top-10 bars
 MINIMUM_RANKING_REVIEWS = 30
 
 # column, ascending, axis label, number format for bar labels
