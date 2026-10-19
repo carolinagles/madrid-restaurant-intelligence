@@ -177,7 +177,7 @@ def get_top_ranking(specialty, price_interval, criterion, membership, diagnostic
 
 
 def render_market_explorer(groups, membership, diagnostics):
-    st.markdown('''<section class="market-hero"><span class="section-eyebrow">MARKET EXPLORER</span>
+    st.markdown('''<section class="market-hero"><span class="section-eyebrow">Market explorer</span>
     <h1>Explore Madrid's restaurant market</h1>
     <p>Compare businesses with the same specialty and price range. See leaders,
     review volume and historical changes in reputation.</p></section>''', unsafe_allow_html=True)

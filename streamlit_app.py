@@ -1,5 +1,6 @@
 """Historical restaurant diagnosis, peer benchmarks and explainable text analysis."""
 import json
+from html import escape
 import unicodedata
 from pathlib import Path
 
@@ -12,20 +13,32 @@ from app.benchmarking import (build_executive_summary, get_restaurant_groups,
                               render_benchmarking, render_market_explorer)
 from app.explainability import explain_sentiment
 from app.inference import predict_sentiment
-from app.insights import prepare_aspects, render_restaurant_insights
-from app.ui import (COLORS, FULL_WIDTH, apply_style, render_footer, render_header,
-                    show_chart)
+from app.insights import ACTIONS, prepare_aspects, render_restaurant_insights
+from app.ui import (COLORS, FULL_WIDTH, apply_style, glass_container, render_data_note,
+                    render_footer, render_header, render_sidebar_brand, show_chart)
 
 ROOT_PATH = Path(__file__).resolve().parent
 DATA_PATH = ROOT_PATH / 'data'
 FOREST = COLORS['forest']
-SENTIMENT_COLORS = {'Negative': COLORS['clay'], 'Neutral': '#B8A16F', 'Positive': FOREST}
+SENTIMENT_COLORS = {'Negative': COLORS['clay'], 'Neutral': COLORS['gold'], 'Positive': FOREST}
 
+PAGE_START = 'Start here'
 PAGE_DIAGNOSIS = 'Restaurant diagnosis'
 PAGE_MARKET = 'Market & Top 10'
 PAGE_CLASSIFIER = 'Review classifier'
 PAGE_METHODOLOGY = 'Methodology'
-PAGES = [PAGE_DIAGNOSIS, PAGE_MARKET, PAGE_CLASSIFIER, PAGE_METHODOLOGY]
+PAGES = [PAGE_START, PAGE_DIAGNOSIS, PAGE_MARKET, PAGE_CLASSIFIER, PAGE_METHODOLOGY]
+PAGE_SUBTITLES = {
+    PAGE_DIAGNOSIS: 'Where one restaurant stands, and what to check first.',
+    PAGE_CLASSIFIER: 'Paste any review in Spanish or English and see why the model decides.',
+    PAGE_METHODOLOGY: 'Every number in this app, and how it was calculated.',
+}
+
+# Results from notebook 3: final test on restaurants never used in development.
+MODEL_FACTS = {'accuracy': '90.5%', 'macro_f1': '0.81', 'baseline_accuracy': '75.7%',
+               'negative_recall': '88%', 'test_restaurants': 996, 'raw_reviews': '1.34 million'}
+JOURNEY_REVIEW = 'Tardaron una hora en traer los platos y llegaron fríos.'
+JOURNEY_THEME = 'Waiting time'
 
 DEFAULT_RESTAURANT = 'Ramses'  # restaurant shown when the app opens
 SIGNAL_LEVELS = ['Watch', 'High alert', 'Critical alert']
@@ -129,8 +142,107 @@ def render_dataset_summary(diagnostics, groups):
                       help='Restaurants with at least five reviews in each six-month period.')
 
 
+def go_to(page):
+    """Button callback: switch the sidebar navigation before the next rerun."""
+    st.session_state['active_page'] = page
+
+
+@st.cache_data(show_spinner=False)
+def classify_example(text):
+    """Run the real model on the hero example; fall back quietly if it is unavailable."""
+    try:
+        return str(predict_sentiment(text)['sentiment'])
+    except Exception:  # model file missing on a demo laptop: the page must still render
+        return None
+
+
+def render_overview(diagnostics, groups, note):
+    """One screen that explains the whole project to a mixed audience."""
+    restaurants = diagnostics['item_id'].nunique()
+    reviews = int(diagnostics['reviews'].sum())
+    label = classify_example(JOURNEY_REVIEW) or 'Negative'
+    action = ACTIONS[JOURNEY_THEME][0]
+
+    st.markdown(f"""
+<section class="hero glass">
+  <div>
+    <p class="hero__brand">Madrid Restaurant Intelligence</p>
+    <h1>Customer reviews, turned into the next decision.</h1>
+    <p class="hero__lede">We read {reviews:,} TripAdvisor reviews of {restaurants:,} Madrid
+    restaurants, in Spanish and English. For any restaurant, the app shows where it stands,
+    how it compares with similar places and what to check first.</p>
+  </div>
+  <figure class="journey" aria-label="How one review moves through the system">
+    <figcaption>One real review, end to end</figcaption>
+    <ol>
+      <li><span class="journey__who">A guest writes</span>
+          <q>{escape(JOURNEY_REVIEW)}</q></li>
+      <li><span class="journey__who">The model reads the sentiment</span>
+          <span class="chip chip--{label.lower()}">{escape(label)}</span></li>
+      <li><span class="journey__who">The theme is detected</span>
+          <span class="journey__what">{escape(JOURNEY_THEME)}</span></li>
+      <li><span class="journey__who">The owner gets a concrete check</span>
+          <span class="journey__what">{escape(action)}</span></li>
+    </ol>
+  </figure>
+</section>""", unsafe_allow_html=True)
+
+    figures = st.columns(4)
+    figures[0].metric('Reviews analysed', f'{reviews:,}')
+    figures[1].metric('Restaurants', f'{restaurants:,}')
+    figures[2].metric('Comparable peer groups', f'{len(groups):,}',
+                      help='Same cuisine and price range, at least 30 restaurants and 1,000 reviews.')
+    figures[3].metric('Accuracy on unseen restaurants', MODEL_FACTS['accuracy'],
+                      help=f"Final test on {MODEL_FACTS['test_restaurants']} restaurants never used "
+                           f"in training. Macro F1 {MODEL_FACTS['macro_f1']}; always guessing "
+                           f"'Positive' would score {MODEL_FACTS['baseline_accuracy']}.")
+
+    st.markdown(f"""
+<div class="section-head"><h2>How it works</h2>
+<p>Three steps, from raw text to a decision a manager can act on this week.</p></div>
+<div class="steps">
+  <article class="step glass"><span class="step__number">1</span>
+    <h3>Clean the reviews</h3>
+    <p>{MODEL_FACTS['raw_reviews']} raw reviews are de-duplicated, joined with restaurant
+    details and kept in Spanish and English, the two languages of 86% of guests.</p></article>
+  <article class="step glass"><span class="step__number">2</span>
+    <h3>Learn from the text</h3>
+    <p>A bilingual text model learns sentiment from star ratings and is tested on restaurants
+    it never saw. Every prediction shows the exact words that drove it.</p></article>
+  <article class="step glass"><span class="step__number">3</span>
+    <h3>Turn it into decisions</h3>
+    <p>Each restaurant gets a diagnosis, a fair comparison with peers of the same cuisine and
+    price, historical warning signals and a short, ranked action plan.</p></article>
+</div>
+<div class="section-head"><h2>Choose your starting point</h2>
+<p>The same data answers a different question for each person in the room.</p></div>
+""", unsafe_allow_html=True)
+
+    audiences = [
+        ('owners', 'Restaurant owners',
+         'See where you stand against similar restaurants, what guests complain about '
+         'and which three things to check first.', 'Diagnose a restaurant', PAGE_DIAGNOSIS),
+        ('data', 'Data and analytics teams',
+         'Peer groups, volume-adjusted rankings and alert thresholds that you can audit '
+         'line by line.', 'Explore the market', PAGE_MARKET),
+        ('developers', 'Developers',
+         'One saved scikit-learn pipeline behind this app and a FastAPI endpoint, with exact '
+         'word-level explanations.', 'Try the classifier', PAGE_CLASSIFIER),
+    ]
+    for column, (key, title, text, button, target) in zip(st.columns(3), audiences):
+        with column:
+            with glass_container(f'audience-{key}'):
+                st.markdown(f'<div class="audience"><h3>{escape(title)}</h3>'
+                            f'<p>{escape(text)}</p></div>', unsafe_allow_html=True)
+                st.button(button, key=f'go_{key}', on_click=go_to, args=(target,),
+                          type='primary', **FULL_WIDTH)
+
+    st.markdown(f"""<div class="limits glass"><strong>What this is, and what it is not.</strong>
+    {escape(note)} Sentiment labels come from star ratings. Themes show an association
+    with complaints, not a proven cause.</div>""", unsafe_allow_html=True)
+
+
 def render_classifier():
-    st.subheader('Classify and explain a review')
     st.caption('The model learned from English and Spanish reviews with labels derived from '
                'ratings. It is tested on restaurants not used in development.')
 
@@ -206,9 +318,17 @@ def render_classifier():
     st.caption('Contributions are exact for this linear model (TF-IDF weight × model coefficient), '
                'not an approximation. Scores are not calibrated probabilities.')
 
+    with st.expander('Use the same model from code'):
+        st.code('uvicorn app.api:app\n\n'
+                'curl -X POST http://127.0.0.1:8000/api/v1/sentiment/explain \\\n'
+                "  -H 'Content-Type: application/json' \\\n"
+                '  -d \'{"review_text": "La comida estaba buena, pero el servicio fue lento."}\'',
+                language='bash')
+        st.caption('This page, the API and the notebooks load one saved pipeline. '
+                   '/api/v1/sentiment returns the label; /explain adds the word contributions.')
+
 
 def render_methodology(snapshot, last_review):
-    st.subheader('How the results are calculated')
     sections = {
         'Data source and cleaning': 'Historical TripAdvisor reviews of Madrid restaurants, '
                                     'in Spanish and English. Duplicates and invalid values '
@@ -401,13 +521,8 @@ def main():
     st.set_page_config(page_title='Madrid Restaurant Intelligence', page_icon='🍽️',
                        layout='wide', initial_sidebar_state='expanded')
     apply_style()
-
-    # The radio stores its value in session_state, so the header can adapt before it renders.
-    current_page = st.session_state.get('active_page', PAGE_DIAGNOSIS)
-    render_header(compact=current_page != PAGE_DIAGNOSIS)
-
+    render_sidebar_brand()
     page = st.sidebar.radio('Choose a view', PAGES, label_visibility='collapsed', key='active_page')
-    st.sidebar.caption('Use the arrow at the top left to hide or show this menu.')
     st.sidebar.divider()
 
     try:
@@ -420,20 +535,26 @@ def main():
     alert_config = config.get('temporal_alert', {})
     snapshot = alert_config.get('as_of_date', '2023-05-31')
     last_review = alert_config.get('last_observed_review_date', '2023-06-10')
-    st.caption(f'Historical snapshot: alert window ends {snapshot}; latest review {last_review}. '
-               'These results do not describe current restaurant performance.')
+    note = (f'Historical data: latest review {last_review}, alert window ends {snapshot}. '
+            'Results describe the past, not current performance.')
 
-    if page == PAGE_MARKET:
-        render_market_explorer(groups, membership, diagnostics)
-    elif page == PAGE_CLASSIFIER:
-        render_classifier()
-    elif page == PAGE_METHODOLOGY:
-        render_methodology(snapshot, last_review)
+    if page == PAGE_START:
+        render_overview(diagnostics, groups, note)
     else:
-        render_diagnosis(diagnostics, membership, groups, config)
+        if page != PAGE_MARKET:  # the market explorer has its own header
+            render_header(title=page, subtitle=PAGE_SUBTITLES.get(page))
+        render_data_note(note)
+        if page == PAGE_MARKET:
+            render_market_explorer(groups, membership, diagnostics)
+        elif page == PAGE_CLASSIFIER:
+            render_classifier()
+        elif page == PAGE_METHODOLOGY:
+            render_methodology(snapshot, last_review)
+        else:
+            render_diagnosis(diagnostics, membership, groups, config)
 
-    render_footer('Madrid Restaurant Intelligence · Historical TripAdvisor review analysis. '
-                  'Research project; not a live rating.')
+    render_footer('Madrid Restaurant Intelligence. Historical TripAdvisor review analysis; '
+                  'a research project, not a live rating.')
 
 
 main()

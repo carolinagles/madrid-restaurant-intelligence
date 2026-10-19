@@ -1,47 +1,55 @@
-"""Visual layer for Madrid Restaurant Intelligence.
+"""Visual layer for Madrid Restaurant Intelligence: "Alpine glass".
+
+A calm liquid backdrop (glacier, pine, saffron) with frosted-glass panels on top.
+Designed to be read on a projector in a business room: large type, high contrast,
+left-aligned Swiss grid, one typeface.
 
 Public API (used by streamlit_app.py and the other app modules):
-    apply_style()           inject the global stylesheet
-    render_header(compact)  hero + sidebar brand
-    style_figure(fig)       apply the house style to a Plotly figure
-    styled_chart(fig)       legacy alias of style_figure
-    show_chart(fig)         style + render a Plotly figure at full width
-    FULL_WIDTH              width kwargs that work on old and new Streamlit
-    PLOTLY_CONFIG           config dict for st.plotly_chart(config=...)
-    COLORS                  palette as Python constants
+    apply_style()               inject the global stylesheet
+    render_sidebar_brand()      brand block at the top of the sidebar
+    render_header(compact, title)  page header (compact bar on secondary pages)
+    render_data_note(text)      small glass note about the data snapshot
+    render_footer(text)         quiet footer line
+    glass_container(key)        bordered st.container styled as a glass panel
+    style_figure(fig)           apply the house style to a Plotly figure
+    styled_chart(fig)           legacy alias of style_figure
+    show_chart(fig)             style + render a Plotly figure at full width
+    FULL_WIDTH, PLOTLY_CONFIG, COLORS
 """
 
+from html import escape
 from importlib.metadata import PackageNotFoundError, version
 
 import streamlit as st
 
 # ---------------------------------------------------------------------------
-# Palette. Keep these in sync with the CSS custom properties below.
-# Text colours were adjusted to reach WCAG AA contrast (≥ 4.5:1) on ivory.
+# Palette. Keep in sync with the CSS custom properties below.
+# Old key names (forest, sage, clay, gold...) are kept so other modules still work.
+# All text colours reach WCAG AA (>= 4.5:1) on the frosted panels.
 # ---------------------------------------------------------------------------
 COLORS = {
-    'forest': '#05402B',
-    'forest_soft': '#1D5A43',
-    'sage': '#B8C8BB',
-    'ivory': '#F7F5EF',
-    'paper': '#FFFEFA',
-    'ink': '#183027',
-    'muted': '#5E6A63',       # was #6F7B74 (4.05:1) -> now 5.2:1
-    'gold': '#A8874F',        # decorative only (rules, arrows, fills)
-    'gold_text': '#8A6A35',   # gold for small text (5.0:1)
-    'wine': '#8B1E1E',
-    'clay': '#A84B45',
+    'forest': '#0E4A39',       # pine: primary, positive
+    'forest_soft': '#2A6653',
+    'sage': '#8FB5AE',         # glacier sage: peer reference
+    'ivory': '#EEF2F0',        # mist: base
+    'paper': '#FFFFFF',
+    'ink': '#13221C',
+    'muted': '#4B5B54',
+    'gold': '#C9932F',         # saffron: decorative fills
+    'gold_text': '#7E5A12',    # saffron for small text
+    'wine': '#9E3B26',
+    'clay': '#B4472F',         # paprika: negative
 }
 
-SERIF = "'Newsreader', Georgia, 'Times New Roman', serif"
-SANS = ("-apple-system, BlinkMacSystemFont, 'Segoe UI', "
-        "'Helvetica Neue', Arial, sans-serif")
+FONT = "'Instrument Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+SANS = SERIF = FONT  # legacy names
 
 PLOTLY_CONFIG = {
     'displaylogo': False,
     'modeBarButtonsToRemove': ['lasso2d', 'select2d', 'autoScale2d'],
     'toImageButtonOptions': {'format': 'png', 'scale': 2},
 }
+
 
 def _streamlit_supports_width_stretch():
     """`use_container_width` is deprecated in recent Streamlit; use `width` when possible."""
@@ -58,687 +66,781 @@ FULL_WIDTH = ({'width': 'stretch'} if _streamlit_supports_width_stretch()
 
 APP_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-    --forest: #05402B;
-    --forest-soft: #1D5A43;
-    --sage: #B8C8BB;
-    --ivory: #F7F5EF;
-    --paper: #FFFEFA;
-    --ink: #183027;
-    --body: #3E4B46;
-    --muted: #5E6A63;
-    --gold: #A8874F;
-    --gold-text: #8A6A35;
-    --gold-light: #D4BA88;
-    --wine: #8B1E1E;
-    --wine-wash: rgba(139, 30, 30, 0.055);
-    --line: rgba(5, 64, 43, 0.10);
-    --line-strong: rgba(5, 64, 43, 0.16);
+    --pine: #0E4A39;
+    --pine-soft: #2A6653;
+    --glacier: #8FBEC6;
+    --saffron: #E2A33A;
+    --saffron-text: #7E5A12;
+    --paprika: #B4472F;
+    --paprika-text: #9E3B26;
+    --mist: #E6ECEA;
+    --ink: #13221C;
+    --body: #2E3D37;
+    --muted: #4B5B54;
 
-    --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
-    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI',
-            'Helvetica Neue', Arial, sans-serif;
+    --font: 'Instrument Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
-    --radius-lg: 24px;
-    --radius-md: 16px;
-    --radius-sm: 12px;
-    --shadow-soft: 0 12px 30px rgba(5, 64, 43, 0.05);
-    --shadow-lift: 0 18px 48px rgba(5, 64, 43, 0.08);
+    /* Glass recipe */
+    --glass: linear-gradient(140deg, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0.40) 100%);
+    --glass-strong: linear-gradient(140deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.58) 100%);
+    --glass-edge: rgba(255,255,255,0.75);
+    --glass-blur: blur(24px) saturate(165%);
+    --glass-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.95),
+        inset 0 -1px 0 rgba(14,74,57,0.05),
+        0 24px 48px -28px rgba(19,34,28,0.35),
+        0 2px 8px rgba(19,34,28,0.04);
+    --line: rgba(14,74,57,0.12);
+
+    --r-xl: 30px;   /* hero */
+    --r-lg: 22px;   /* panels */
+    --r-md: 16px;   /* inner blocks */
+    --r-sm: 12px;   /* inputs */
 }
 
-/* ---------- Base ---------------------------------------------------- */
-html,
-body,
-[class*='css'] {
-    font-family: var(--sans);
-    color: var(--ink);
+/* ---------- Base & liquid backdrop --------------------------------- */
+html, body, [class*='css'], .stApp, .stMarkdown, button, input, textarea {
+    font-family: var(--font);
 }
+html { font-size: 17px; }
+body, .stApp { color: var(--ink); }
 
-.stApp {
+.stApp { background: var(--mist); }
+
+/* The liquid field: soft colour pools that the glass refracts. */
+.stApp::before {
+    content: '';
+    position: fixed;
+    inset: -12%;
+    z-index: 0;
+    pointer-events: none;
     background:
-        radial-gradient(circle at 92% 0%,
-                        rgba(184, 200, 187, 0.34), transparent 28rem),
-        var(--ivory);
+        radial-gradient(38rem 30rem at 10% 6%,  rgba(14,74,57,0.42),  transparent 62%),
+        radial-gradient(40rem 32rem at 92% 10%, rgba(143,190,198,0.75), transparent 64%),
+        radial-gradient(34rem 28rem at 80% 92%, rgba(226,163,58,0.42), transparent 62%),
+        radial-gradient(30rem 26rem at 14% 96%, rgba(180,71,47,0.20),  transparent 62%),
+        radial-gradient(46rem 36rem at 50% 50%, rgba(255,255,255,0.55), transparent 70%);
+    filter: blur(30px);
+    animation: liquid-drift 60s ease-in-out infinite alternate;
+}
+@keyframes liquid-drift {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    50%  { transform: translate3d(-2%, 1.5%, 0) scale(1.04); }
+    100% { transform: translate3d(1.5%, -1%, 0) scale(1.02); }
+}
+
+[data-testid='stAppViewContainer'],
+[data-testid='stMain'],
+.main {
+    position: relative;
+    z-index: 1;
+    background: transparent;
 }
 
 [data-testid='stHeader'] {
-    background: rgba(247, 245, 239, 0.88);
-    border-bottom: 1px solid rgba(5, 64, 43, 0.08);
-    backdrop-filter: blur(18px);
+    background: rgba(238,242,240,0.35);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid rgba(255,255,255,0.55);
 }
 
 .block-container {
-    max-width: 1240px;
-    padding-top: 2.8rem;
+    max-width: 1280px;
+    padding-top: 3rem;
     padding-bottom: 4rem;
 }
 
-h1, h2, h3 {
-    color: var(--forest);
-    font-family: var(--serif);
-    font-weight: 500;
-    letter-spacing: -0.02em;
+h1, h2, h3, h4 {
+    color: var(--ink);
+    font-family: var(--font);
+    font-weight: 600;
+    letter-spacing: -0.025em;
 }
+h2 { font-size: 1.9rem; line-height: 1.15; }
+h3 { font-size: 1.3rem; line-height: 1.25; }
+p, li { color: var(--body); line-height: 1.6; }
 
-/* Numbers line up in tables and metrics. */
 [data-testid='stMetricValue'],
 [data-testid='stDataFrame'],
-.driver-comparison strong {
-    font-variant-numeric: tabular-nums;
-}
+.tabular { font-variant-numeric: tabular-nums; }
 
-/* Keyboard focus is always visible. */
 button:focus-visible,
 a:focus-visible,
 [role='tab']:focus-visible,
 [data-baseweb='select'] > div:focus-within,
 [data-baseweb='input'] > div:focus-within,
 textarea:focus-visible {
-    outline: 2px solid var(--gold) !important;
+    outline: 2px solid var(--pine) !important;
     outline-offset: 2px;
 }
+::selection { background: rgba(143,190,198,0.6); color: var(--ink); }
 
-::selection {
-    background: rgba(184, 200, 187, 0.65);
-    color: var(--ink);
+/* ---------- Glass surfaces (Streamlit widgets) ---------------------- */
+[data-testid='stMetric'],
+[data-testid='stExpander'] details,
+[data-testid='stPlotlyChart'],
+[data-testid='stDataFrame'],
+[data-testid='stVerticalBlockBorderWrapper'],
+[class*='st-key-glass-'],
+.glass {
+    background: var(--glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge) !important;
+    box-shadow: var(--glass-shadow);
 }
 
-/* ---------- Hero ---------------------------------------------------- */
-.hero {
-    padding: 3.4rem 3.6rem;
-    margin-bottom: 1.25rem;
-    border: 1px solid var(--line);
-    border-radius: 28px;
-    background: linear-gradient(125deg,
-                                rgba(255, 254, 250, 0.98),
-                                rgba(229, 235, 227, 0.88));
-    box-shadow: var(--shadow-lift);
+[data-testid='stVerticalBlockBorderWrapper'],
+[class*='st-key-glass-'] {
+    border-radius: var(--r-lg) !important;
+    padding: 1.4rem 1.5rem !important;
+}
+/* Avoid a double panel when Streamlit nests its own wrapper inside the keyed one. */
+[class*='st-key-glass-'] [data-testid='stVerticalBlockBorderWrapper'] {
+    background: transparent; box-shadow: none; border: 0 !important;
+    backdrop-filter: none; padding: 0 !important;
 }
 
-.hero-label {
-    margin-bottom: 1rem;
-    color: var(--gold-text);
-    font-size: 0.74rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-}
-
-.hero h1 {
-    max-width: 780px;
-    margin: 0;
-    padding: 0;
-    font-size: clamp(2.6rem, 5vw, 4.6rem);
-    font-weight: 500;
-    line-height: 1.0;
-    text-wrap: balance;
-}
-
-.hero p {
-    max-width: 62ch;
-    margin: 1.3rem 0 0;
-    color: var(--muted);
-    font-size: 1.06rem;
-    line-height: 1.7;
-}
-
-/* Compact variant: used on secondary pages so content starts higher. */
-.hero--compact {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.4rem 1.2rem;
-    padding: 1.4rem 1.8rem;
-    border-radius: 20px;
-    box-shadow: var(--shadow-soft);
-}
-
-.hero--compact .hero-label {
-    margin: 0;
-}
-
-.hero--compact h1 {
-    font-size: clamp(1.5rem, 2.4vw, 1.9rem);
-    line-height: 1.2;
-}
-
-/* ---------- Metrics ------------------------------------------------- */
+/* Metrics */
 [data-testid='stMetric'] {
-    min-height: 126px;
-    padding: 1.25rem 1.35rem;
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    background: rgba(255, 254, 250, 0.88);
-    box-shadow: var(--shadow-soft);
+    min-height: 124px;
+    padding: 1.2rem 1.35rem;
+    border-radius: var(--r-lg);
 }
-
 [data-testid='stMetricLabel'],
 [data-testid='stMetricLabel'] p {
     color: var(--muted);
-    font-size: 0.76rem;
-    font-weight: 650;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: 0.86rem;
+    font-weight: 500;
 }
-
 [data-testid='stMetricValue'] {
-    color: var(--forest);
-    font-family: var(--serif);
-    font-size: 2rem;
+    color: var(--ink);
+    font-size: 2.05rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
 }
 
-/* ---------- Sidebar ------------------------------------------------- */
+/* Charts and tables sit on their own panel. */
+[data-testid='stPlotlyChart'] {
+    padding: 0.8rem 0.6rem 0.2rem;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+[data-testid='stDataFrame'] {
+    padding: 0.35rem;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+
+/* Expanders */
+[data-testid='stExpander'] details {
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+[data-testid='stExpander'] summary { padding: 0.95rem 1.2rem; }
+[data-testid='stExpander'] summary p { color: var(--ink); font-weight: 600; }
+[data-testid='stExpander'] summary:hover { background: rgba(255,255,255,0.35); }
+
+/* Alerts become tinted glass with a slim status edge. */
+[data-testid='stAlert'] > div {
+    background: var(--glass-strong) !important;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    border-left: 4px solid var(--glacier);
+    border-radius: var(--r-md);
+    box-shadow: var(--glass-shadow);
+    color: var(--ink);
+}
+[data-testid='stAlert'] p { color: var(--ink); }
+[data-testid='stAlert']:has([data-testid='stAlertContentSuccess']) > div { border-left-color: var(--pine); }
+[data-testid='stAlert']:has([data-testid='stAlertContentWarning']) > div { border-left-color: var(--saffron); }
+[data-testid='stAlert']:has([data-testid='stAlertContentError'])   > div { border-left-color: var(--paprika); }
+
+[data-testid='stCaptionContainer'],
+[data-testid='stCaptionContainer'] p { color: var(--muted); font-size: 0.86rem; }
+
+/* ---------- Sidebar: a tall pane of glass --------------------------- */
 [data-testid='stSidebar'] {
-    background: var(--forest);
-    border-right: 0;
+    background: rgba(255,255,255,0.38);
+    backdrop-filter: blur(30px) saturate(160%);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    border-right: 1px solid rgba(255,255,255,0.7);
+    box-shadow: inset -1px 0 0 rgba(14,74,57,0.05);
 }
-
-[data-testid='stSidebar'] h1,
-[data-testid='stSidebar'] h2,
-[data-testid='stSidebar'] h3,
-[data-testid='stSidebar'] p,
-[data-testid='stSidebar'] label,
-[data-testid='stSidebar'] [data-testid='stCaptionContainer'] {
-    color: var(--ivory) !important;
-}
-
-/* Inputs keep dark text on their light background. */
-[data-testid='stSidebar'] [data-baseweb='select'] *,
-[data-testid='stSidebar'] [data-baseweb='input'] input {
-    color: var(--ink) !important;
-}
-
-[data-testid='stSidebar'] input::placeholder {
-    color: var(--muted) !important;
-}
-
-/* Fix: warnings/infos in the sidebar inherited ivory text on a pale box. */
-[data-testid='stSidebar'] [data-testid='stAlert'] p {
-    color: var(--ink) !important;
-}
-
-/* Fix: the collapse arrow was dark-on-dark. */
-[data-testid='stSidebar'] [data-testid='stSidebarCollapseButton'] button,
-[data-testid='stSidebar'] [data-testid='stSidebarCollapseButton'] svg {
-    color: var(--ivory) !important;
-    fill: var(--ivory) !important;
-}
-
-[data-testid='stSidebar'] hr {
-    border-color: rgba(255, 255, 255, 0.18);
-}
+[data-testid='stSidebar'] > div:first-child { background: transparent; }
+[data-testid='stSidebar'] h3 { font-size: 1rem; color: var(--muted); font-weight: 600; }
+[data-testid='stSidebar'] hr { border-color: rgba(14,74,57,0.10); }
 
 .sidebar-brand {
-    padding: 1.2rem 0 1.6rem;
-    margin-bottom: 1.4rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0 1.4rem;
+    margin-bottom: 1.1rem;
+    border-bottom: 1px solid rgba(14,74,57,0.10);
 }
-
+.sidebar-brand__mark {
+    flex: 0 0 2.4rem;
+    height: 2.4rem;
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.75), transparent 45%),
+        linear-gradient(145deg, var(--pine) 0%, var(--pine-soft) 60%, var(--saffron) 140%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 6px 14px -6px rgba(14,74,57,0.5);
+}
 .sidebar-brand strong {
     display: block;
-    color: var(--ivory);
-    font-family: var(--serif);
-    font-size: 1.7rem;
-    font-weight: 500;
-    line-height: 1.15;
+    color: var(--ink);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
 }
-
 .sidebar-brand span {
     display: block;
-    margin-top: 0.45rem;
-    color: rgba(247, 245, 239, 0.72);
-    font-size: 0.72rem;
-    letter-spacing: 0.13em;
-    text-transform: uppercase;
+    color: var(--muted);
+    font-size: 0.82rem;
 }
 
-/* Navigation: the active page is obvious. */
-[data-testid='stSidebar'] [role='radiogroup'] {
-    gap: 0.35rem;
-}
-
+/* Navigation as glass pills; the active page is filled pine. */
+[data-testid='stSidebar'] [role='radiogroup'] { gap: 0.3rem; }
 [data-testid='stSidebar'] [role='radiogroup'] label {
     display: flex;
     align-items: center;
     min-height: 46px;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.11);
-    border-radius: var(--radius-sm);
-    background: rgba(255, 255, 255, 0.035);
+    padding: 0.5rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
     cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease;
 }
-
+[data-testid='stSidebar'] [role='radiogroup'] label > div:first-child { display: none; }
 [data-testid='stSidebar'] [role='radiogroup'] label:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(255,255,255,0.5);
+    border-color: rgba(255,255,255,0.8);
 }
-
 [data-testid='stSidebar'] [role='radiogroup'] label:has(input:checked) {
-    border-color: rgba(255, 255, 255, 0.55);
-    background: rgba(255, 255, 255, 0.18);
+    background: linear-gradient(140deg, var(--pine) 0%, var(--pine-soft) 100%);
+    border-color: rgba(255,255,255,0.25);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 10px 22px -12px rgba(14,74,57,0.65);
 }
-
+[data-testid='stSidebar'] [role='radiogroup'] label p { color: var(--ink); font-weight: 500; }
+[data-testid='stSidebar'] [role='radiogroup'] label:has(input:checked) p { color: #FFFFFF !important; }
 [data-testid='stSidebar'] [role='radiogroup'] label:has(input:focus-visible) {
-    outline: 2px solid var(--gold-light);
+    outline: 2px solid var(--pine);
     outline-offset: 2px;
 }
 
-[data-testid='stSidebar'] [role='radiogroup'] label p {
-    color: var(--ivory) !important;
-    font-weight: 650;
-}
-
-/* Fix: sidebar buttons were forest-on-forest (invisible). */
-[data-testid='stSidebar'] .stButton > button {
-    min-height: 2.8rem;
-    border-color: var(--ivory);
-    border-radius: var(--radius-sm);
-    color: var(--forest);
-    background: var(--ivory);
-}
-
-[data-testid='stSidebar'] .stButton > button:hover {
-    color: var(--forest);
-    background: #FFFFFF;
-}
-
-[data-testid='stSidebar'] .stButton > button p {
-    color: var(--forest) !important;
-}
-
-/* ---------- Tabs ---------------------------------------------------- */
+/* ---------- Tabs: segmented glass control ---------------------------- */
 .stTabs [data-baseweb='tab-list'] {
-    gap: 0.4rem;
-    padding: 0.35rem;
-    border: 1px solid rgba(5, 64, 43, 0.09);
-    border-radius: var(--radius-md);
-    background: rgba(255, 254, 250, 0.72);
+    gap: 0.25rem;
+    padding: 0.3rem;
+    border: 1px solid var(--glass-edge);
+    border-radius: 999px;
+    background: var(--glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-shadow);
     overflow-x: auto;
+    width: fit-content;
+    max-width: 100%;
 }
-
 .stTabs [data-baseweb='tab'] {
-    height: 44px;
-    padding: 0 1rem;
-    border-radius: var(--radius-sm);
+    height: 42px;
+    padding: 0 1.15rem;
+    border-radius: 999px;
     color: var(--muted);
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
+    background: transparent;
 }
-
-.stTabs [aria-selected='true'],
-.stTabs [aria-selected='true'] p {
-    color: var(--ivory) !important;
-    background: var(--forest);
+.stTabs [aria-selected='true'] {
+    background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(19,34,28,0.08), 0 6px 14px -8px rgba(19,34,28,0.3);
 }
-
+.stTabs [aria-selected='true'] p { color: var(--ink) !important; font-weight: 600; }
 .stTabs [data-baseweb='tab-highlight'],
-.stTabs [data-baseweb='tab-border'] {
-    display: none;
-}
+.stTabs [data-baseweb='tab-border'] { display: none; }
 
-/* ---------- Buttons ------------------------------------------------- */
+/* ---------- Buttons -------------------------------------------------- */
 .stButton > button,
 .stDownloadButton > button,
 [data-testid='stFormSubmitButton'] > button {
     min-height: 46px;
-    padding: 0 1.4rem;
-    border: 1px solid var(--forest);
+    padding: 0 1.3rem;
+    border: 1px solid var(--glass-edge);
     border-radius: 999px;
-    color: var(--ivory);
-    background: var(--forest);
-    font-weight: 650;
-    transition: background-color 160ms ease, box-shadow 160ms ease,
-                transform 160ms ease;
+    color: var(--ink);
+    background: var(--glass-strong);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 16px -10px rgba(19,34,28,0.35);
+    font-weight: 600;
+    transition: background-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
 }
-
 .stButton > button p,
 .stDownloadButton > button p,
-[data-testid='stFormSubmitButton'] > button p {
-    color: inherit;
-}
-
+[data-testid='stFormSubmitButton'] > button p { color: inherit; font-weight: 600; }
 .stButton > button:hover,
-.stDownloadButton > button:hover,
-[data-testid='stFormSubmitButton'] > button:hover {
-    border-color: var(--forest-soft);
-    color: var(--ivory);
-    background: var(--forest-soft);
-    box-shadow: 0 10px 24px rgba(5, 64, 43, 0.16);
-    transform: translateY(-1px);
-}
-
-.stButton > button:active,
-.stDownloadButton > button:active {
-    transform: translateY(0);
-}
-
-/* Secondary download button reads as a quieter action. */
-.stDownloadButton > button {
-    color: var(--forest);
-    background: transparent;
-}
-
 .stDownloadButton > button:hover {
-    color: var(--ivory);
+    color: var(--pine);
+    border-color: rgba(14,74,57,0.35);
+    background: rgba(255,255,255,0.9);
 }
 
-/* ---------- Inputs, tables, alerts, expanders ----------------------- */
+/* Primary actions: solid pine. */
+button[kind='primary'],
+button[kind='primaryFormSubmit'],
+[data-testid^='stBaseButton-primary'] {
+    color: #FFFFFF !important;
+    border-color: rgba(255,255,255,0.25) !important;
+    background: linear-gradient(140deg, var(--pine) 0%, var(--pine-soft) 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 12px 24px -14px rgba(14,74,57,0.75) !important;
+}
+button[kind='primary']:hover,
+button[kind='primaryFormSubmit']:hover,
+[data-testid^='stBaseButton-primary']:hover {
+    background: var(--pine) !important;
+    color: #FFFFFF !important;
+}
+
+/* ---------- Inputs and menus ---------------------------------------- */
 [data-baseweb='select'] > div,
 [data-baseweb='input'] > div,
+[data-baseweb='textarea'],
 textarea {
-    border-color: var(--line-strong) !important;
-    border-radius: 14px !important;
-    background: var(--paper) !important;
+    border: 1px solid rgba(255,255,255,0.85) !important;
+    border-radius: var(--r-sm) !important;
+    background: rgba(255,255,255,0.62) !important;
+    box-shadow: inset 0 1px 2px rgba(19,34,28,0.06);
+}
+textarea { font-size: 1rem !important; line-height: 1.55 !important; }
+[data-baseweb='tag'] { border-radius: 999px !important; background: var(--pine) !important; }
+[data-baseweb='popover'] > div,
+[data-baseweb='menu'] {
+    background: rgba(255,255,255,0.86) !important;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: var(--r-md) !important;
 }
 
-[data-baseweb='tag'] {
-    border-radius: 999px !important;
+/* Code blocks (developer snippet) and heading anchors. */
+[data-testid='stCode'] pre, .stCode pre {
+    background: rgba(19,34,28,0.86) !important;
+    border-radius: var(--r-md) !important;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+[data-testid='stHeaderActionElements'], .stMarkdown h1 a, .stMarkdown h2 a, .stMarkdown h3 a {
+    display: none !important;
 }
 
-[data-testid='stDataFrame'] {
+/* ---------- Page header --------------------------------------------- */
+.page-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.3rem 1rem;
+    margin-bottom: 1.4rem;
+}
+.page-head h1 {
+    margin: 0;
+    padding: 0;
+    font-size: clamp(1.9rem, 3vw, 2.5rem);
+    letter-spacing: -0.035em;
+}
+.page-head p { margin: 0; color: var(--muted); }
+
+.data-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0 0 1.4rem;
+    padding: 0.45rem 0.95rem;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    color: var(--muted);
+}
+.data-note::before {
+    content: '';
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--saffron);
+    box-shadow: 0 0 0 3px rgba(226,163,58,0.22);
+}
+
+/* ---------- Start here: hero with a review journey ------------------- */
+.hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 3rem;
+    align-items: center;
+    padding: 3.4rem 3.4rem;
+    margin-bottom: 1.6rem;
+    border-radius: var(--r-xl);
     overflow: hidden;
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    background: var(--paper);
 }
-
-[data-testid='stAlert'] {
-    border-radius: var(--radius-md);
+/* Liquid specular highlight across the top of the pane. */
+.hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+        radial-gradient(60% 40% at 18% 0%, rgba(255,255,255,0.7), transparent 70%),
+        linear-gradient(180deg, rgba(255,255,255,0.25), transparent 30%);
 }
-
-[data-testid='stExpander'] details {
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    background: rgba(255, 254, 250, 0.6);
-}
-
-[data-testid='stExpander'] summary p {
-    color: var(--ink);
+.hero > * { position: relative; }
+.hero__brand {
+    margin: 0 0 1.4rem;
+    color: var(--pine);
+    font-size: 0.95rem;
     font-weight: 600;
 }
-
-[data-testid='stCaptionContainer'] {
-    color: var(--muted);
+.hero h1 {
+    margin: 0;
+    padding: 0;
+    font-size: clamp(2.5rem, 4.8vw, 4.2rem);
+    font-weight: 600;
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+    text-wrap: balance;
+}
+.hero__lede {
+    max-width: 52ch;
+    margin: 1.4rem 0 0;
+    font-size: 1.1rem;
+    line-height: 1.65;
+    color: var(--body);
 }
 
-/* ---------- Section headings (used by insights / benchmarking) ------ */
+.journey {
+    margin: 0;
+    padding: 1.4rem 1.5rem;
+    border-radius: var(--r-lg);
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: inset 0 1px 0 #FFFFFF, 0 18px 40px -24px rgba(19,34,28,0.4);
+}
+.journey figcaption {
+    margin-bottom: 1rem;
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+.journey ol { list-style: none; margin: 0; padding: 0; }
+.journey li {
+    position: relative;
+    padding: 0 0 1.15rem 1.9rem;
+    opacity: 0;
+    animation: journey-in 520ms cubic-bezier(.2,.7,.2,1) forwards;
+}
+.journey li:nth-child(1) { animation-delay: 150ms; }
+.journey li:nth-child(2) { animation-delay: 650ms; }
+.journey li:nth-child(3) { animation-delay: 1150ms; }
+.journey li:nth-child(4) { animation-delay: 1650ms; padding-bottom: 0; }
+/* The thread that connects the steps. */
+.journey li::before {
+    content: '';
+    position: absolute;
+    left: 0.42rem;
+    top: 0.45rem;
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 2px solid var(--pine);
+}
+.journey li:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 0.69rem;
+    top: 1.2rem;
+    bottom: 0.1rem;
+    width: 2px;
+    background: linear-gradient(var(--pine), rgba(14,74,57,0.15));
+}
+.journey li:last-child::before { background: var(--pine); }
+.journey__who { display: block; color: var(--muted); font-size: 0.84rem; margin-bottom: 0.2rem; }
+.journey__what { display: block; color: var(--ink); font-weight: 600; font-size: 1.02rem; line-height: 1.45; }
+.journey q {
+    display: block;
+    color: var(--ink);
+    font-size: 1.05rem;
+    font-style: italic;
+    line-height: 1.5;
+    quotes: '“' '”';
+}
+.chip {
+    display: inline-block;
+    padding: 0.18rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.chip--negative { color: #FFFFFF; background: var(--paprika); }
+.chip--neutral  { color: var(--ink); background: var(--saffron); }
+.chip--positive { color: #FFFFFF; background: var(--pine); }
+@keyframes journey-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Sections on the start page */
+.section-head { margin: 2.6rem 0 1rem; }
+.section-head h2 { margin: 0; padding: 0; }
+.section-head p { max-width: 64ch; margin: 0.4rem 0 0; color: var(--muted); }
+
+.steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+.step {
+    padding: 1.5rem 1.5rem 1.6rem;
+    border-radius: var(--r-lg);
+}
+.step__number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    margin-bottom: 1rem;
+    border-radius: 50%;
+    color: var(--pine);
+    background: rgba(255,255,255,0.85);
+    border: 1px solid rgba(14,74,57,0.18);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.step h3 { margin: 0 0 0.45rem; padding: 0; }
+.step p { margin: 0; }
+
+.audience h3 { margin: 0 0 0.4rem; padding: 0; }
+.audience p { margin: 0 0 0.9rem; min-height: 4.8em; }
+
+.limits {
+    margin-top: 1.6rem;
+    padding: 1.1rem 1.4rem;
+    border-radius: var(--r-md);
+    color: var(--body);
+    font-size: 0.92rem;
+}
+.limits strong { color: var(--ink); }
+
+/* ---------- Section headings (insights / benchmarking) ---------------- */
 .action-section,
 .strength-section,
-.driver-section {
-    margin: 2.4rem 0 1rem;
-}
-
+.driver-section { margin: 2.4rem 0 1rem; }
 .action-section h2,
 .strength-section h2,
-.driver-section h2 {
-    margin: 0.2rem 0 0.35rem;
-    padding: 0;
-    color: var(--ink);
-    font-family: var(--serif);
-    font-size: 2rem;
-}
-
+.driver-section h2 { margin: 0.15rem 0 0.35rem; padding: 0; }
 .action-section p,
-.driver-section p {
-    max-width: 68ch;
-    margin: 0;
-    color: var(--muted);
-}
+.driver-section p { max-width: 66ch; margin: 0; color: var(--muted); }
 
 .section-eyebrow,
 .card-label {
-    color: var(--gold-text);
-    font-size: 0.70rem;
-    font-weight: 750;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    color: var(--pine);
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
-/* ---------- Priority cards (action plan) ---------------------------- */
+/* ---------- Decision summary: tinted pine glass ---------------------- */
+.decision-summary {
+    margin: 1.2rem 0;
+    padding: 1.4rem 1.6rem;
+    border-radius: var(--r-lg);
+    background: linear-gradient(140deg, rgba(14,74,57,0.88) 0%, rgba(42,102,83,0.78) 100%);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid rgba(255,255,255,0.25);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 24px 48px -26px rgba(14,74,57,0.7);
+}
+.decision-summary .card-label { color: #F3D9A4; }
+.decision-summary p {
+    max-width: 72ch;
+    margin: 0.4rem 0 0;
+    color: #FFFFFF;
+    font-size: 1.15rem;
+    line-height: 1.6;
+}
+
+/* ---------- Priority, driver and strength cards ---------------------- */
+.priority-card,
+.driver-card,
+.strength-card,
+.market-hero {
+    background: var(--glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--glass-shadow);
+}
+
 .priority-card {
+    position: relative;
     margin: 1rem 0;
-    padding: 1.45rem;
-    border: 1px solid rgba(139, 30, 30, 0.14);
-    border-left: 5px solid var(--wine);
-    border-radius: 20px;
-    background: linear-gradient(135deg, #FFFEFB 0%, #FBF4EF 100%);
-    box-shadow: 0 14px 32px rgba(24, 48, 39, 0.07);
+    padding: 1.5rem 1.6rem;
+    border-radius: var(--r-lg);
+    overflow: hidden;
 }
-
+.priority-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 1.2rem; bottom: 1.2rem;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--paprika);
+}
 .priority-card__head {
     display: flex;
     align-items: flex-start;
     gap: 1rem;
     margin-bottom: 1rem;
 }
-
 .priority-card h3,
-.strength-card h3 {
-    margin: 0.15rem 0 0;
-    padding: 0;
-    color: var(--ink);
-    font-family: var(--serif);
-    font-size: 1.35rem;
-    line-height: 1.25;
-}
-
+.strength-card h3 { margin: 0.1rem 0 0; padding: 0; }
 .priority-number {
     display: inline-flex;
-    flex: 0 0 2.65rem;
+    flex: 0 0 2.6rem;
     align-items: center;
     justify-content: center;
-    height: 2.65rem;
-    border-radius: 999px;
+    height: 2.6rem;
+    border-radius: 50%;
     color: #FFFFFF;
-    background: var(--wine);
-    font-size: 0.82rem;
-    font-weight: 750;
-    letter-spacing: 0.06em;
+    background: var(--paprika);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
 }
-
 .priority-evidence {
-    margin-bottom: 0.85rem;
-    padding: 0.9rem 1rem;
-    border-radius: 14px;
-    background: var(--wine-wash);
+    margin-bottom: 0.8rem;
+    padding: 0.95rem 1.1rem;
+    border-radius: var(--r-md);
+    background: rgba(180,71,47,0.07);
+    border: 1px solid rgba(180,71,47,0.12);
 }
-
 .priority-evidence p,
 .priority-grid p,
-.strength-card p {
-    margin: 0.3rem 0 0;
-    color: var(--body);
-    line-height: 1.55;
-}
-
+.strength-card p { margin: 0.3rem 0 0; color: var(--body); line-height: 1.55; }
 .priority-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem;
+    gap: 0.8rem;
 }
-
 .priority-grid > div {
-    padding: 0.9rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.82);
+    padding: 0.95rem 1.1rem;
+    border-radius: var(--r-md);
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.85);
 }
 
 .strength-card {
+    position: relative;
     margin: 0.75rem 0;
-    padding: 1.1rem 1.25rem;
-    border: 1px solid rgba(5, 64, 43, 0.13);
-    border-left: 5px solid var(--forest);
-    border-radius: 18px;
-    background: linear-gradient(135deg, #F9FCF8 0%, #EEF5EF 100%);
+    padding: 1.15rem 1.4rem;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+}
+.strength-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 1rem; bottom: 1rem;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--pine);
 }
 
-/* ---------- Deterioration signals ----------------------------------- */
 .driver-card {
     display: grid;
     grid-template-columns: 1fr 1.3fr;
     align-items: center;
     gap: 1.2rem;
     margin: 0.8rem 0;
-    padding: 1.15rem 1.25rem;
-    border: 1px solid rgba(139, 30, 30, 0.14);
-    border-radius: 18px;
-    background: #FFFFFF;
+    padding: 1.2rem 1.4rem;
+    border-radius: var(--r-lg);
 }
-
-.driver-card h3 {
-    margin: 0.2rem 0 0;
-    padding: 0;
-    color: var(--ink);
-    font-family: var(--serif);
-}
-
-.driver-card p {
-    margin: 0.45rem 0 0;
-    color: var(--muted);
-}
-
+.driver-card h3 { margin: 0.15rem 0 0; padding: 0; }
+.driver-card p { margin: 0.4rem 0 0; color: var(--muted); }
 .driver-comparison {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.85rem;
-    border-radius: 14px;
-    background: #FBF7F3;
+    padding: 0.9rem;
+    border-radius: var(--r-md);
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.85);
     text-align: center;
+    font-variant-numeric: tabular-nums;
 }
-
-.driver-comparison div:not(.driver-arrow) {
-    display: flex;
-    flex-direction: column;
-}
-
+.driver-comparison div:not(.driver-arrow) { display: flex; flex-direction: column; }
 .driver-comparison span,
-.driver-comparison small {
-    color: var(--muted);
-    font-size: 0.72rem;   /* was 0.66rem: too small to read */
-}
-
-.driver-comparison strong {
-    margin: 0.2rem 0;
-    color: var(--wine);
-    font-size: 1.25rem;
-}
-
-.driver-arrow {
-    color: var(--gold);
-    font-size: 1.4rem;
-}
-
-.decision-summary {
-    margin: 1.2rem 0;
-    padding: 1.35rem 1.5rem;
-    border-radius: 20px;
-    background: linear-gradient(135deg, var(--forest) 0%, var(--forest-soft) 100%);
-    box-shadow: 0 16px 34px rgba(5, 64, 43, 0.16);
-}
-
-.decision-summary .card-label {
-    color: var(--gold-light);
-}
-
-.decision-summary p {
-    max-width: 70ch;
-    margin: 0.45rem 0 0;
-    color: #FFFFFF;
-    font-family: var(--serif);
-    font-size: 1.15rem;
-    line-height: 1.6;
-}
+.driver-comparison small { color: var(--muted); font-size: 0.8rem; }
+.driver-comparison strong { margin: 0.2rem 0; color: var(--paprika-text); font-size: 1.35rem; }
+.driver-arrow { color: var(--muted); font-size: 1.3rem; }
 
 /* ---------- Market explorer ----------------------------------------- */
 .market-hero {
-    margin: 1rem 0 1.3rem;
-    padding: 2rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, #FFFEFB 0%, #EAF2EC 100%);
+    margin: 0.5rem 0 1.3rem;
+    padding: 2rem 2.2rem;
+    border-radius: var(--r-xl);
 }
-
 .market-hero h1 {
-    margin: 0.35rem 0 0.75rem;
+    margin: 0.3rem 0 0.6rem;
     padding: 0;
-    color: var(--ink);
-    font-family: var(--serif);
-    font-size: 2.4rem;
+    font-size: clamp(1.9rem, 3vw, 2.5rem);
+    letter-spacing: -0.035em;
     line-height: 1.1;
 }
-
-.market-hero p {
-    max-width: 68ch;
-    margin: 0;
-    color: var(--muted);
-    line-height: 1.6;
-}
+.market-hero p { max-width: 66ch; margin: 0; color: var(--body); }
 
 /* ---------- Footer -------------------------------------------------- */
 .app-footer {
-    margin-top: 3rem;
+    margin-top: 3.2rem;
     padding-top: 1.2rem;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid rgba(14,74,57,0.12);
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.82rem;
 }
 
-/* ---------- Responsive & motion ------------------------------------- */
+/* ---------- Responsive, motion, print ------------------------------- */
+@media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 2rem; padding: 2.2rem 1.5rem; border-radius: 24px; }
+    .steps { grid-template-columns: 1fr; }
+    .priority-grid, .driver-card { grid-template-columns: 1fr; }
+    .market-hero { padding: 1.4rem; }
+    .audience p { min-height: 0; }
+}
 @media (max-width: 760px) {
-    .block-container {
-        padding-top: 1.4rem;
-    }
-
-    .hero {
-        padding: 2.2rem 1.5rem;
-        border-radius: 22px;
-    }
-
-    .hero--compact {
-        padding: 1.1rem 1.2rem;
-    }
-
-    .priority-grid,
-    .driver-card {
-        grid-template-columns: 1fr;
-    }
-
-    .market-hero {
-        padding: 1.4rem;
-    }
-
-    .market-hero h1 {
-        font-size: 1.9rem;
+    html { font-size: 16px; }
+    .block-container { padding-top: 1.6rem; }
+}
+/* Browsers without backdrop-filter get solid, readable panels. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    [data-testid='stMetric'], [data-testid='stExpander'] details, [data-testid='stPlotlyChart'],
+    [data-testid='stDataFrame'], [data-testid='stVerticalBlockBorderWrapper'], [class*='st-key-glass-'],
+    .glass, .priority-card, .driver-card, .strength-card, .market-hero, [data-testid='stSidebar'] {
+        background: rgba(255,255,255,0.92);
     }
 }
-
 @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        transition: none !important;
-        animation: none !important;
-    }
-
-    .stButton > button:hover,
-    .stDownloadButton > button:hover {
-        transform: none;
-    }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+    .journey li { opacity: 1; }
 }
-
 @media print {
-    [data-testid='stSidebar'],
-    [data-testid='stHeader'] {
-        display: none;
-    }
-
-    .stApp {
-        background: #FFFFFF;
-    }
+    [data-testid='stSidebar'], [data-testid='stHeader'] { display: none; }
+    .stApp::before { display: none; }
+    .stApp { background: #FFFFFF; }
 }
 </style>
 """
@@ -752,45 +854,41 @@ def apply_style():
     st.markdown(APP_CSS, unsafe_allow_html=True)
 
 
-def render_header(compact=False):
-    """Display the page header and the sidebar brand.
+def render_sidebar_brand():
+    st.sidebar.markdown(
+        '<div class="sidebar-brand"><div class="sidebar-brand__mark" aria-hidden="true"></div>'
+        '<div><strong>Madrid Restaurant Intelligence</strong>'
+        '<span>Reviews into decisions</span></div></div>',
+        unsafe_allow_html=True)
 
-    compact=True renders a slim title bar for secondary pages so the
-    actual content is visible without scrolling.
+
+def render_header(compact=False, title=None, subtitle=None):
+    """Page header for secondary pages.
+
+    `compact` is kept for older callers; every secondary page now uses the same
+    slim header so the content starts high on a projector screen.
     """
-    if compact:
-        hero_html = (
-            '<section class="hero hero--compact">'
-            '<div class="hero-label">Madrid restaurant intelligence</div>'
-            '<h1>Turn reviews into clear decisions.</h1>'
-            '</section>'
-        )
-    else:
-        hero_html = (
-            '<section class="hero">'
-            '<div class="hero-label">Madrid restaurant intelligence</div>'
-            '<h1>Turn reviews into clear decisions.</h1>'
-            '<p>Diagnose a restaurant, compare it with similar places and '
-            'spot historical warning signs, all from customer reviews '
-            'written in Madrid.</p>'
-            '</section>'
-        )
+    title = title or 'Turn reviews into clear decisions'
+    sub = f'<p>{escape(subtitle)}</p>' if subtitle else ''
+    st.markdown(f'<header class="page-head"><h1>{escape(title)}</h1>{sub}</header>',
+                unsafe_allow_html=True)
 
-    sidebar_html = (
-        '<div class="sidebar-brand">'
-        '<strong>Madrid Intelligence</strong>'
-        '<span>Restaurant reputation system</span>'
-        '</div>'
-    )
 
-    st.markdown(hero_html, unsafe_allow_html=True)
-    st.sidebar.markdown(sidebar_html, unsafe_allow_html=True)
+def render_data_note(text):
+    st.markdown(f'<div class="data-note glass">{escape(text)}</div>', unsafe_allow_html=True)
 
 
 def render_footer(text):
     """Quiet footer line at the end of every page."""
-    st.markdown(f'<div class="app-footer">{text}</div>',
-                unsafe_allow_html=True)
+    st.markdown(f'<div class="app-footer">{escape(text)}</div>', unsafe_allow_html=True)
+
+
+def glass_container(key):
+    """A bordered container styled as a glass panel (keyed when Streamlit allows it)."""
+    try:
+        return st.container(border=True, key=f'glass-{key}')
+    except TypeError:  # Streamlit < 1.39 has no `key` on containers
+        return st.container(border=True)
 
 
 def _legend_repeats_x_axis(figure):
@@ -798,27 +896,23 @@ def _legend_repeats_x_axis(figure):
     traces = [trace for trace in figure.data if getattr(trace, 'x', None) is not None]
     if not traces:
         return False
-    return all({str(value) for value in trace.x} == {str(trace.name)}
-               for trace in traces)
+    return all({str(value) for value in trace.x} == {str(trace.name)} for trace in traces)
 
 
 def style_figure(figure, height=None):
     """Apply the house style to a Plotly figure and return it."""
     has_title = bool(getattr(figure.layout.title, 'text', None))
 
-    # Facet panels from plotly express are labelled "column=value"; keep the value.
     facet_titles = [annotation for annotation in figure.layout.annotations
                     if annotation.text and '=' in annotation.text]
     for annotation in facet_titles:
         annotation.text = annotation.text.split('=', 1)[1]
-        annotation.font = {'family': SANS, 'size': 13, 'color': COLORS['ink']}
+        annotation.font = {'family': FONT, 'size': 14, 'color': COLORS['ink']}
     has_facets = bool(facet_titles)
 
-    hide_legend = _legend_repeats_x_axis(figure)
-    if hide_legend:
+    if _legend_repeats_x_axis(figure):
         figure.update_layout(showlegend=False)
 
-    # Leave room above the plot for whatever sits there: title, legend, panel titles.
     top_margin = 20
     if has_title:
         top_margin += 45
@@ -828,46 +922,37 @@ def style_figure(figure, height=None):
         top_margin += 25
 
     figure.update_layout(
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(255, 254, 250, 0.72)',
-        font={'family': SANS, 'color': COLORS['ink'], 'size': 13},
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',          # the glass panel shows through
+        font={'family': FONT, 'color': COLORS['ink'], 'size': 14},
         colorway=[COLORS['forest'], COLORS['gold'], COLORS['clay'],
-                  '#6C8B76', COLORS['sage'], COLORS['wine']],
+                  '#5E8C86', COLORS['sage'], COLORS['wine']],
         legend={'orientation': 'h', 'yanchor': 'bottom',
-                'y': 1.10 if has_facets else 1.02,
-                'xanchor': 'left', 'x': 0,
-                'font': {'size': 12, 'color': COLORS['muted']},
-                'title': {'font': {'size': 12, 'color': COLORS['muted']},
-                          'side': 'left'},
-                'bgcolor': 'rgba(0, 0, 0, 0)'},
-        hoverlabel={'bgcolor': COLORS['paper'],
-                    'bordercolor': 'rgba(5, 64, 43, 0.25)',
-                    'font': {'family': SANS, 'color': COLORS['ink'],
-                             'size': 13}},
-        margin={'l': 20, 'r': 20, 't': top_margin, 'b': 20},
-        bargap=0.3,
+                'y': 1.10 if has_facets else 1.02, 'xanchor': 'left', 'x': 0,
+                'font': {'size': 13, 'color': COLORS['muted']},
+                'title': {'font': {'size': 13, 'color': COLORS['muted']}, 'side': 'left'},
+                'bgcolor': 'rgba(0,0,0,0)'},
+        hoverlabel={'bgcolor': 'rgba(255,255,255,0.95)', 'bordercolor': 'rgba(14,74,57,0.25)',
+                    'font': {'family': FONT, 'color': COLORS['ink'], 'size': 14}},
+        margin={'l': 20, 'r': 24, 't': top_margin, 'b': 20},
+        bargap=0.32,
     )
-    # Only style the title when there is one: an empty title object makes
-    # Plotly draw the word "undefined".
     if has_title:
-        figure.update_layout(title={'font': {'family': SERIF, 'size': 20,
-                                             'color': COLORS['forest']},
+        figure.update_layout(title={'font': {'family': FONT, 'size': 19, 'color': COLORS['ink']},
                                     'x': 0, 'xanchor': 'left'})
     if height:
         figure.update_layout(height=height)
 
     axis_style = {
-        'gridcolor': 'rgba(5, 64, 43, 0.08)',
-        'zerolinecolor': 'rgba(5, 64, 43, 0.25)',
-        'linecolor': 'rgba(5, 64, 43, 0.18)',
+        'gridcolor': 'rgba(14,74,57,0.09)',
+        'zerolinecolor': 'rgba(14,74,57,0.28)',
+        'linecolor': 'rgba(14,74,57,0.18)',
         'tickfont': {'color': COLORS['muted']},
-        'title': {'font': {'color': COLORS['muted'], 'size': 12}},
+        'title': {'font': {'color': COLORS['muted'], 'size': 13}},
     }
     figure.update_xaxes(**axis_style)
     figure.update_yaxes(**axis_style)
     if has_facets:
-        # Panels often measure different things (a rating vs. a percentage),
-        # so every panel shows its own scale.
         figure.update_yaxes(showticklabels=True)
     return figure
 

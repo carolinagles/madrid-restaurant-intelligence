@@ -181,10 +181,10 @@ def render_restaurant_insights(restaurant, groups, aspects):
                       f"is {group['negative_gap']:+.1f} points.")
     summary = f"{restaurant['negative_percentage']:.1f}% of the restaurant's historical "
     summary += f"reviews are negative.{group_note} First check: {priorities[0]['title'].lower()}."
-    st.markdown('<article class="decision-summary"><span class="card-label">DECISION SUMMARY</span>'
+    st.markdown('<article class="decision-summary"><span class="card-label">Decision summary</span>'
                 f'<p>{escape(summary)}</p></article>', unsafe_allow_html=True)
 
-    st.markdown('<section class="driver-section"><span class="section-eyebrow">HISTORICAL SIGNALS</span>'
+    st.markdown('<section class="driver-section"><span class="section-eyebrow">Historical signals</span>'
                 '<h2>What changed in the reviews?</h2><p>Compare themes in the earlier and later '
                 'six-month periods. A change does not establish its cause.</p></section>',
                 unsafe_allow_html=True)
@@ -197,34 +197,34 @@ def render_restaurant_insights(restaurant, groups, aspects):
                 'negative share. Read the later reviews directly.')
     else:
         for row in drivers.head(3).itertuples():
-            st.markdown('<article class="driver-card"><div><span class="card-label">THEME TO CHECK</span>'
+            st.markdown('<article class="driver-card"><div><span class="card-label">Theme to check</span>'
                         f'<h3>{escape(str(row.aspect))}</h3><p>Negative share rose by '
                         f'<strong>{row.temporal_negative_change:+.1f} pp</strong>.</p></div>'
-                        '<div class="driver-comparison"><div><span>EARLIER PERIOD</span>'
+                        '<div class="driver-comparison"><div><span>Earlier period</span>'
                         f'<strong>{row.previous_negative_percentage:.1f}%</strong>'
                         f'<small>{int(row.previous_mentions)} mentions</small></div>'
-                        '<div class="driver-arrow">→</div><div><span>LATER PERIOD</span>'
+                        '<div class="driver-arrow">→</div><div><span>Later period</span>'
                         f'<strong>{row.recent_negative_percentage:.1f}%</strong>'
                         f'<small>{int(row.recent_mentions)} mentions</small></div></div></article>',
                         unsafe_allow_html=True)
     st.caption('Keyword themes summarize review text. Review rating gives each full review '
                'its sentiment. Theme change is an association, not a verified cause.')
 
-    st.markdown('<section class="action-section"><span class="section-eyebrow">ACTION PLAN</span>'
+    st.markdown('<section class="action-section"><span class="section-eyebrow">Action plan</span>'
                 '<h2>What should you check first?</h2><p>Evidence, a practical action and a '
                 'way to check improvement for each priority.</p></section>', unsafe_allow_html=True)
     for position, item in enumerate(priorities, 1):
         st.markdown(f'<article class="priority-card"><div class="priority-card__head">'
                     f'<span class="priority-number">{position:02d}</span><div>'
-                    f'<span class="card-label">PRIORITY</span><h3>{escape(item["title"])}</h3></div></div>'
-                    '<div class="priority-evidence"><span class="card-label">EVIDENCE</span>'
+                    f'<span class="card-label">Priority</span><h3>{escape(item["title"])}</h3></div></div>'
+                    '<div class="priority-evidence"><span class="card-label">Evidence</span>'
                     f'<p>{escape(item["evidence"])}</p></div><div class="priority-grid">'
-                    '<div><span class="card-label">SUGGESTED CHECK</span>'
+                    '<div><span class="card-label">Suggested check</span>'
                     f'<p>{escape(item["action"])}</p></div><div>'
-                    '<span class="card-label">HOW TO MEASURE</span>'
+                    '<span class="card-label">How to measure</span>'
                     f'<p>{escape(item["measurement"])}</p></div></div></article>',
                     unsafe_allow_html=True)
-    st.markdown('<section class="strength-section"><span class="section-eyebrow">STRENGTHS</span>'
+    st.markdown('<section class="strength-section"><span class="section-eyebrow">Strengths</span>'
                 '<h2>What should you keep doing?</h2></section>', unsafe_allow_html=True)
     if strengths:
         for item in strengths:
