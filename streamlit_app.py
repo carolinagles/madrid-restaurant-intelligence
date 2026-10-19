@@ -16,14 +16,15 @@ from app.inference import predict_sentiment
 from app.insights import ACTIONS, prepare_aspects, render_restaurant_insights
 import numpy as np
 
-from app.ui import (COLORS, FULL_WIDTH, apply_style, glass_container, render_data_note,
-                    render_footer, render_header, render_sidebar_brand, render_spectrum,
-                    show_chart, spectrum_html)
+from app.ui import (COLORS, FULL_WIDTH, PAGE_ICONS, apply_style, glass_container,
+                    render_data_note, render_footer, render_header, render_sidebar_brand,
+                    render_spectrum, show_chart, sidebar_label, sidebar_panel, spectrum_html)
 
 ROOT_PATH = Path(__file__).resolve().parent
 DATA_PATH = ROOT_PATH / 'data'
 FOREST = COLORS['forest']
-SENTIMENT_COLORS = {'Negative': COLORS['clay'], 'Neutral': COLORS['gold'], 'Positive': FOREST}
+SENTIMENT_COLORS = {'Negative': COLORS['clay'], 'Neutral': COLORS['gold'],
+                    'Positive': COLORS['positive']}
 
 PAGE_START = 'Start here'
 PAGE_DIAGNOSIS = 'Restaurant diagnosis'
@@ -356,7 +357,7 @@ def render_classifier():
                         color='Role', orientation='h',
                         labels={'contribution': f'Contribution to the {label} score', 'term': ''},
                         color_discrete_map={f'Supports {label}': FOREST,
-                                            f'Opposes {label}': COLORS['gold']})
+                                            f'Opposes {label}': COLORS['lime']})
         show_chart(figure, height=max(280, 34 * len(terms) + 110))
         st.caption(
             f"Showing the {len(terms)} most influential of {explanation.get('terms_in_review', len(terms))} "
@@ -405,16 +406,17 @@ def render_methodology(snapshot, last_review):
 
 
 def select_restaurant(diagnostics):
-    """Sidebar search + picker. Returns the selected row or None."""
-    st.sidebar.markdown('### Restaurant')
-    search = st.sidebar.text_input('Find a restaurant', placeholder='Type part of a name',
-                                   key='restaurant_search').strip()
+    """Sidebar search + picker in their own panel. Returns the selected row or None."""
+    sidebar_label('Restaurant')
+    panel = sidebar_panel('sidebar-filters')
+    search = panel.text_input('Find a restaurant', placeholder='Type part of a name',
+                              key='restaurant_search').strip()
     options = diagnostics
     if search:
         options = diagnostics.loc[diagnostics['name'].str.contains(
             search, case=False, na=False, regex=False)]
     if options.empty:
-        st.sidebar.warning('No matches. Try another name.')
+        panel.warning('No matches. Try another name.')
         st.info(f'No restaurant name contains “{search}”. Clear the search box or try '
                 'a shorter part of the name.')
         return None
@@ -426,10 +428,9 @@ def select_restaurant(diagnostics):
         _normalize(DEFAULT_RESTAURANT), regex=False).to_numpy().nonzero()[0]
     default_index = int(default_matches[0]) if len(default_matches) else 0
 
-    st.sidebar.caption(f'{len(labels):,} matching restaurants')
-    selected_label = st.sidebar.selectbox('Restaurant', labels, index=default_index,
-                                          key='selected_restaurant',
-                                          label_visibility='collapsed')
+    selected_label = panel.selectbox('Restaurant', labels, index=default_index,
+                                     key='selected_restaurant', label_visibility='collapsed')
+    panel.caption(f'{len(labels):,} matching restaurants')
     return diagnostics.loc[diagnostics['restaurant_label'].eq(selected_label)].iloc[0]
 
 
@@ -583,7 +584,9 @@ def main():
                        layout='wide', initial_sidebar_state='expanded')
     apply_style()
     render_sidebar_brand()
-    page = st.sidebar.radio('Choose a view', PAGES, label_visibility='collapsed', key='active_page')
+    sidebar_label('Navigation')
+    page = st.sidebar.radio('Choose a view', PAGES, label_visibility='collapsed', key='active_page',
+                            format_func=lambda name: f'{PAGE_ICONS.get(name, "")} {name}'.strip())
     st.sidebar.divider()
 
     try:
