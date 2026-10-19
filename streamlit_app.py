@@ -166,7 +166,7 @@ def render_overview(diagnostics, groups, note):
     st.markdown(f"""
 <section class="hero glass">
   <div>
-    <p class="hero__brand">Madrid Restaurant Intelligence</p>
+    <p class="hero__brand"><b>Madrid</b> Restaurant Intelligence</p>
     <h1>Customer reviews, turned into the next decision.</h1>
     <p class="hero__lede">We read {reviews:,} TripAdvisor reviews of {restaurants:,} Madrid
     restaurants, in Spanish and English. For any restaurant, the app shows where it stands,

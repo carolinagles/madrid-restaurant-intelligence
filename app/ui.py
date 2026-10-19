@@ -1,6 +1,6 @@
-"""Visual layer for Madrid Restaurant Intelligence: "Alpine glass".
+"""Visual layer for Madrid Restaurant Intelligence: "Silver glass".
 
-A calm liquid backdrop (glacier, pine, saffron) with frosted-glass panels on top.
+A quiet silver backdrop with floating glass pills, and clear bevelled glass panels on top.
 Designed to be read on a projector in a business room: large type, high contrast,
 left-aligned Swiss grid, one typeface.
 
@@ -28,17 +28,17 @@ import streamlit as st
 # All text colours reach WCAG AA (>= 4.5:1) on the frosted panels.
 # ---------------------------------------------------------------------------
 COLORS = {
-    'forest': '#0E4A39',       # pine: primary, positive
-    'forest_soft': '#2A6653',
-    'sage': '#8FB5AE',         # glacier sage: peer reference
-    'ivory': '#EEF2F0',        # mist: base
+    'forest': '#2F3A44',       # slate: primary series, positive
+    'forest_soft': '#4A5561',
+    'sage': '#B4BAC2',         # silver: peer reference
+    'ivory': '#E4E7EB',        # base
     'paper': '#FFFFFF',
-    'ink': '#13221C',
-    'muted': '#4B5B54',
-    'gold': '#C9932F',         # saffron: decorative fills
-    'gold_text': '#7E5A12',    # saffron for small text
-    'wine': '#9E3B26',
-    'clay': '#B4472F',         # paprika: negative
+    'ink': '#1A1D21',
+    'muted': '#4A5058',
+    'gold': '#9AA1AA',         # pewter: neutral, secondary fills
+    'gold_text': '#4A5058',
+    'wine': '#8E3B2F',
+    'clay': '#A4483A',         # muted brick: negative
 }
 
 FONT = "'Instrument Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -69,36 +69,37 @@ APP_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
 
 :root {
-    --pine: #0E4A39;
-    --pine-soft: #2A6653;
-    --glacier: #8FBEC6;
-    --saffron: #E2A33A;
-    --saffron-text: #7E5A12;
-    --paprika: #B4472F;
-    --paprika-text: #9E3B26;
-    --mist: #E6ECEA;
-    --ink: #13221C;
-    --body: #2E3D37;
-    --muted: #4B5B54;
+    --graphite: #1A1D21;
+    --graphite-soft: #3A4048;
+    --slate: #2F3A44;
+    --steel: #8C949E;
+    --amber: #B48A3E;
+    --brick: #A4483A;
+    --brick-text: #8E3B2F;
+    --base: #DCDFE3;
+    --ink: #1A1D21;
+    --body: #30353B;
+    --muted: #4A5058;
 
     --font: 'Instrument Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
-    /* Glass recipe */
-    --glass: linear-gradient(140deg, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0.40) 100%);
-    --glass-strong: linear-gradient(140deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.58) 100%);
-    --glass-edge: rgba(255,255,255,0.75);
-    --glass-blur: blur(24px) saturate(165%);
+    /* Clear glass: mostly transparent, with a bevelled edge that catches the light. */
+    --glass: linear-gradient(145deg, rgba(255,255,255,0.46) 0%, rgba(255,255,255,0.14) 100%);
+    --glass-strong: linear-gradient(145deg, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0.38) 100%);
+    --glass-edge: rgba(255,255,255,0.78);
+    --glass-blur: blur(18px) saturate(140%);
     --glass-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.95),
-        inset 0 -1px 0 rgba(14,74,57,0.05),
-        0 24px 48px -28px rgba(19,34,28,0.35),
-        0 2px 8px rgba(19,34,28,0.04);
-    --line: rgba(14,74,57,0.12);
+        inset 1px 1px 0 rgba(255,255,255,0.95),
+        inset -1px -1px 0 rgba(26,29,33,0.07),
+        inset 0 0 24px rgba(255,255,255,0.18),
+        0 30px 60px -32px rgba(26,29,33,0.40),
+        0 8px 18px -12px rgba(26,29,33,0.16);
+    --line: rgba(26,29,33,0.10);
 
-    --r-xl: 30px;   /* hero */
-    --r-lg: 22px;   /* panels */
-    --r-md: 16px;   /* inner blocks */
-    --r-sm: 12px;   /* inputs */
+    --r-xl: 44px;   /* hero: a wide pill */
+    --r-lg: 26px;   /* panels */
+    --r-md: 18px;   /* inner blocks */
+    --r-sm: 14px;   /* inputs */
 }
 
 /* ---------- Base & liquid backdrop --------------------------------- */
@@ -108,28 +109,21 @@ html, body, [class*='css'], .stApp, .stMarkdown, button, input, textarea {
 html { font-size: 17px; }
 body, .stApp { color: var(--ink); }
 
-.stApp { background: var(--mist); }
+.stApp {
+    background:
+        radial-gradient(70rem 40rem at 85% -10%, rgba(255,255,255,0.85), transparent 60%),
+        linear-gradient(110deg, #AEB4BC 0%, #CDD1D6 28%, #E6E8EB 60%, #EEF0F2 100%);
+    background-attachment: fixed;
+}
 
-/* The liquid field: soft colour pools that the glass refracts. */
+/* Large glass pills drift behind the content, like objects under a frosted pane. */
 .stApp::before {
     content: '';
     position: fixed;
-    inset: -12%;
+    inset: 0;
     z-index: 0;
     pointer-events: none;
-    background:
-        radial-gradient(38rem 30rem at 10% 6%,  rgba(14,74,57,0.42),  transparent 62%),
-        radial-gradient(40rem 32rem at 92% 10%, rgba(143,190,198,0.75), transparent 64%),
-        radial-gradient(34rem 28rem at 80% 92%, rgba(226,163,58,0.42), transparent 62%),
-        radial-gradient(30rem 26rem at 14% 96%, rgba(180,71,47,0.20),  transparent 62%),
-        radial-gradient(46rem 36rem at 50% 50%, rgba(255,255,255,0.55), transparent 70%);
-    filter: blur(30px);
-    animation: liquid-drift 60s ease-in-out infinite alternate;
-}
-@keyframes liquid-drift {
-    0%   { transform: translate3d(0, 0, 0) scale(1); }
-    50%  { transform: translate3d(-2%, 1.5%, 0) scale(1.04); }
-    100% { transform: translate3d(1.5%, -1%, 0) scale(1.02); }
+    background: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201600%201000'%20preserveAspectRatio='xMidYMid%20slice'%3E%20%3Cdefs%3E%20%3ClinearGradient%20id='f'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='#fff'%20stop-opacity='.30'/%3E%3Cstop%20offset='1'%20stop-color='#fff'%20stop-opacity='.04'/%3E%3C/linearGradient%3E%20%3ClinearGradient%20id='s'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='#fff'%20stop-opacity='.95'/%3E%3Cstop%20offset='.5'%20stop-color='#fff'%20stop-opacity='.25'/%3E%3Cstop%20offset='1'%20stop-color='#59616b'%20stop-opacity='.28'/%3E%3C/linearGradient%3E%20%3Cfilter%20id='d'%20x='-20%25'%20y='-40%25'%20width='140%25'%20height='180%25'%3E%3CfeDropShadow%20dx='0'%20dy='26'%20stdDeviation='22'%20flood-color='#1a1d21'%20flood-opacity='.16'/%3E%3C/filter%3E%20%3C/defs%3E%20%3Cg%20fill='url%28#f%29'%20stroke='url%28#s%29'%20stroke-width='1.6'%20filter='url%28#d%29'%3E%20%3Crect%20x='-240'%20y='-110'%20width='560'%20height='230'%20rx='115'/%3E%20%3Crect%20x='470'%20y='-90'%20width='1340'%20height='250'%20rx='125'/%3E%20%3Crect%20x='1230'%20y='390'%20width='560'%20height='220'%20rx='110'/%3E%20%3Crect%20x='-180'%20y='780'%20width='1120'%20height='290'%20rx='145'/%3E%20%3Crect%20x='1120'%20y='820'%20width='640'%20height='260'%20rx='130'/%3E%20%3C/g%3E%3C/svg%3E") center / cover no-repeat;
 }
 
 [data-testid='stAppViewContainer'],
@@ -141,7 +135,7 @@ body, .stApp { color: var(--ink); }
 }
 
 [data-testid='stHeader'] {
-    background: rgba(238,242,240,0.35);
+    background: rgba(230,232,235,0.30);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border-bottom: 1px solid rgba(255,255,255,0.55);
@@ -173,10 +167,10 @@ a:focus-visible,
 [data-baseweb='select'] > div:focus-within,
 [data-baseweb='input'] > div:focus-within,
 textarea:focus-visible {
-    outline: 2px solid var(--pine) !important;
+    outline: 2px solid var(--graphite) !important;
     outline-offset: 2px;
 }
-::selection { background: rgba(143,190,198,0.6); color: var(--ink); }
+::selection { background: rgba(140,148,158,0.45); color: var(--ink); }
 
 /* ---------- Glass surfaces (Streamlit widgets) ---------------------- */
 [data-testid='stMetric'],
@@ -250,30 +244,30 @@ textarea:focus-visible {
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-edge);
-    border-left: 4px solid var(--glacier);
+    border-left: 4px solid var(--steel);
     border-radius: var(--r-md);
     box-shadow: var(--glass-shadow);
     color: var(--ink);
 }
 [data-testid='stAlert'] p { color: var(--ink); }
-[data-testid='stAlert']:has([data-testid='stAlertContentSuccess']) > div { border-left-color: var(--pine); }
-[data-testid='stAlert']:has([data-testid='stAlertContentWarning']) > div { border-left-color: var(--saffron); }
-[data-testid='stAlert']:has([data-testid='stAlertContentError'])   > div { border-left-color: var(--paprika); }
+[data-testid='stAlert']:has([data-testid='stAlertContentSuccess']) > div { border-left-color: var(--slate); }
+[data-testid='stAlert']:has([data-testid='stAlertContentWarning']) > div { border-left-color: var(--amber); }
+[data-testid='stAlert']:has([data-testid='stAlertContentError'])   > div { border-left-color: var(--brick); }
 
 [data-testid='stCaptionContainer'],
 [data-testid='stCaptionContainer'] p { color: var(--muted); font-size: 0.86rem; }
 
 /* ---------- Sidebar: a tall pane of glass --------------------------- */
 [data-testid='stSidebar'] {
-    background: rgba(255,255,255,0.38);
-    backdrop-filter: blur(30px) saturate(160%);
+    background: rgba(255,255,255,0.22);
+    backdrop-filter: blur(30px) saturate(140%);
     -webkit-backdrop-filter: blur(30px) saturate(160%);
     border-right: 1px solid rgba(255,255,255,0.7);
-    box-shadow: inset -1px 0 0 rgba(14,74,57,0.05);
+    box-shadow: inset -1px 0 0 rgba(26,29,33,0.05);
 }
 [data-testid='stSidebar'] > div:first-child { background: transparent; }
 [data-testid='stSidebar'] h3 { font-size: 1rem; color: var(--muted); font-weight: 600; }
-[data-testid='stSidebar'] hr { border-color: rgba(14,74,57,0.10); }
+[data-testid='stSidebar'] hr { border-color: rgba(26,29,33,0.10); }
 
 .sidebar-brand {
     display: flex;
@@ -281,22 +275,22 @@ textarea:focus-visible {
     gap: 0.75rem;
     padding: 0.6rem 0 1.4rem;
     margin-bottom: 1.1rem;
-    border-bottom: 1px solid rgba(14,74,57,0.10);
+    border-bottom: 1px solid rgba(26,29,33,0.10);
 }
 .sidebar-brand__mark {
-    flex: 0 0 2.4rem;
-    height: 2.4rem;
-    border-radius: 12px;
-    background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.75), transparent 45%),
-        linear-gradient(145deg, var(--pine) 0%, var(--pine-soft) 60%, var(--saffron) 140%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 6px 14px -6px rgba(14,74,57,0.5);
+    flex: 0 0 2.6rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.8), rgba(255,255,255,0.15));
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 rgba(26,29,33,0.12),
+                0 8px 16px -8px rgba(26,29,33,0.35);
 }
 .sidebar-brand strong {
     display: block;
     color: var(--ink);
     font-size: 1.05rem;
-    font-weight: 600;
+    font-weight: 400;
     letter-spacing: -0.01em;
     line-height: 1.2;
 }
@@ -306,7 +300,7 @@ textarea:focus-visible {
     font-size: 0.82rem;
 }
 
-/* Navigation as glass pills; the active page is filled pine. */
+/* Navigation as glass pills; the active page is a raised white pill. */
 [data-testid='stSidebar'] [role='radiogroup'] { gap: 0.3rem; }
 [data-testid='stSidebar'] [role='radiogroup'] label {
     display: flex;
@@ -314,7 +308,7 @@ textarea:focus-visible {
     min-height: 46px;
     padding: 0.5rem 0.85rem;
     border: 1px solid transparent;
-    border-radius: var(--r-sm);
+    border-radius: 999px;
     cursor: pointer;
     transition: background-color 160ms ease, border-color 160ms ease;
 }
@@ -324,14 +318,15 @@ textarea:focus-visible {
     border-color: rgba(255,255,255,0.8);
 }
 [data-testid='stSidebar'] [role='radiogroup'] label:has(input:checked) {
-    background: linear-gradient(140deg, var(--pine) 0%, var(--pine-soft) 100%);
-    border-color: rgba(255,255,255,0.25);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 10px 22px -12px rgba(14,74,57,0.65);
+    background: linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,255,255,0.62));
+    border-color: rgba(255,255,255,0.95);
+    box-shadow: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 rgba(26,29,33,0.06),
+                0 10px 22px -14px rgba(26,29,33,0.45);
 }
 [data-testid='stSidebar'] [role='radiogroup'] label p { color: var(--ink); font-weight: 500; }
-[data-testid='stSidebar'] [role='radiogroup'] label:has(input:checked) p { color: #FFFFFF !important; }
+[data-testid='stSidebar'] [role='radiogroup'] label:has(input:checked) p { color: var(--ink) !important; font-weight: 600; }
 [data-testid='stSidebar'] [role='radiogroup'] label:has(input:focus-visible) {
-    outline: 2px solid var(--pine);
+    outline: 2px solid var(--graphite);
     outline-offset: 2px;
 }
 
@@ -360,7 +355,7 @@ textarea:focus-visible {
 }
 .stTabs [aria-selected='true'] {
     background: #FFFFFF;
-    box-shadow: 0 1px 2px rgba(19,34,28,0.08), 0 6px 14px -8px rgba(19,34,28,0.3);
+    box-shadow: 0 1px 2px rgba(26,29,33,0.08), 0 6px 14px -8px rgba(26,29,33,0.3);
 }
 .stTabs [aria-selected='true'] p { color: var(--ink) !important; font-weight: 600; }
 .stTabs [data-baseweb='tab-highlight'],
@@ -378,7 +373,7 @@ textarea:focus-visible {
     background: var(--glass-strong);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 16px -10px rgba(19,34,28,0.35);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 6px 16px -10px rgba(26,29,33,0.35);
     font-weight: 600;
     transition: background-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
 }
@@ -387,25 +382,28 @@ textarea:focus-visible {
 [data-testid='stFormSubmitButton'] > button p { color: inherit; font-weight: 600; }
 .stButton > button:hover,
 .stDownloadButton > button:hover {
-    color: var(--pine);
-    border-color: rgba(14,74,57,0.35);
+    color: var(--graphite);
+    border-color: rgba(26,29,33,0.35);
     background: rgba(255,255,255,0.9);
 }
 
-/* Primary actions: solid pine. */
+/* Primary actions: a brighter, raised glass pill with dark text. */
 button[kind='primary'],
 button[kind='primaryFormSubmit'],
 [data-testid^='stBaseButton-primary'] {
-    color: #FFFFFF !important;
-    border-color: rgba(255,255,255,0.25) !important;
-    background: linear-gradient(140deg, var(--pine) 0%, var(--pine-soft) 100%) !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 12px 24px -14px rgba(14,74,57,0.75) !important;
+    color: var(--ink) !important;
+    border: 1px solid rgba(255,255,255,0.95) !important;
+    background: linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,255,255,0.55)) !important;
+    box-shadow: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 rgba(26,29,33,0.08),
+                0 14px 28px -16px rgba(26,29,33,0.55) !important;
 }
+button[kind='primary'] p, button[kind='primaryFormSubmit'] p,
+[data-testid^='stBaseButton-primary'] p { color: var(--ink) !important; }
 button[kind='primary']:hover,
 button[kind='primaryFormSubmit']:hover,
 [data-testid^='stBaseButton-primary']:hover {
-    background: var(--pine) !important;
-    color: #FFFFFF !important;
+    background: #FFFFFF !important;
+    box-shadow: inset 1px 1px 0 #FFFFFF, 0 18px 32px -16px rgba(26,29,33,0.6) !important;
 }
 
 /* ---------- Inputs and menus ---------------------------------------- */
@@ -416,10 +414,10 @@ textarea {
     border: 1px solid rgba(255,255,255,0.85) !important;
     border-radius: var(--r-sm) !important;
     background: rgba(255,255,255,0.62) !important;
-    box-shadow: inset 0 1px 2px rgba(19,34,28,0.06);
+    box-shadow: inset 0 1px 2px rgba(26,29,33,0.06);
 }
 textarea { font-size: 1rem !important; line-height: 1.55 !important; }
-[data-baseweb='tag'] { border-radius: 999px !important; background: var(--pine) !important; }
+[data-baseweb='tag'] { border-radius: 999px !important; background: var(--slate) !important; }
 [data-baseweb='popover'] > div,
 [data-baseweb='menu'] {
     background: rgba(255,255,255,0.86) !important;
@@ -430,7 +428,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
 
 /* Code blocks (developer snippet) and heading anchors. */
 [data-testid='stCode'] pre, .stCode pre {
-    background: rgba(19,34,28,0.86) !important;
+    background: rgba(36,40,46,0.88) !important;
     border-radius: var(--r-md) !important;
     border: 1px solid rgba(255,255,255,0.15);
 }
@@ -469,8 +467,8 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 50%;
-    background: var(--saffron);
-    box-shadow: 0 0 0 3px rgba(226,163,58,0.22);
+    background: var(--amber);
+    box-shadow: 0 0 0 3px rgba(140,148,158,0.25);
 }
 
 /* ---------- Start here: hero with a review journey ------------------- */
@@ -480,7 +478,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
     gap: 3rem;
     align-items: center;
-    padding: 3.4rem 3.4rem;
+    padding: 3.6rem 4rem;
     margin-bottom: 1.6rem;
     border-radius: var(--r-xl);
     overflow: hidden;
@@ -493,16 +491,17 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     border-radius: inherit;
     pointer-events: none;
     background:
-        radial-gradient(60% 40% at 18% 0%, rgba(255,255,255,0.7), transparent 70%),
-        linear-gradient(180deg, rgba(255,255,255,0.25), transparent 30%);
+        radial-gradient(55% 45% at 15% 0%, rgba(255,255,255,0.55), transparent 70%),
+        linear-gradient(180deg, rgba(255,255,255,0.20), transparent 35%);
 }
 .hero > * { position: relative; }
 .hero__brand {
     margin: 0 0 1.4rem;
-    color: var(--pine);
-    font-size: 0.95rem;
-    font-weight: 600;
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 400;
 }
+.hero__brand b { color: var(--ink); font-weight: 700; }
 .hero h1 {
     margin: 0;
     padding: 0;
@@ -524,9 +523,10 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     margin: 0;
     padding: 1.4rem 1.5rem;
     border-radius: var(--r-lg);
-    background: rgba(255,255,255,0.55);
+    background: linear-gradient(145deg, rgba(255,255,255,0.55), rgba(255,255,255,0.20));
     border: 1px solid rgba(255,255,255,0.9);
-    box-shadow: inset 0 1px 0 #FFFFFF, 0 18px 40px -24px rgba(19,34,28,0.4);
+    box-shadow: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 rgba(26,29,33,0.06),
+                0 18px 40px -24px rgba(26,29,33,0.4);
 }
 .journey figcaption {
     margin-bottom: 1rem;
@@ -554,7 +554,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     height: 0.62rem;
     border-radius: 50%;
     background: #FFFFFF;
-    border: 2px solid var(--pine);
+    border: 2px solid var(--graphite);
 }
 .journey li:not(:last-child)::after {
     content: '';
@@ -563,9 +563,9 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     top: 1.2rem;
     bottom: 0.1rem;
     width: 2px;
-    background: linear-gradient(var(--pine), rgba(14,74,57,0.15));
+    background: linear-gradient(var(--graphite), rgba(26,29,33,0.15));
 }
-.journey li:last-child::before { background: var(--pine); }
+.journey li:last-child::before { background: var(--graphite); }
 .journey__who { display: block; color: var(--muted); font-size: 0.84rem; margin-bottom: 0.2rem; }
 .journey__what { display: block; color: var(--ink); font-weight: 600; font-size: 1.02rem; line-height: 1.45; }
 .journey q {
@@ -583,9 +583,9 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     font-size: 0.9rem;
     font-weight: 600;
 }
-.chip--negative { color: #FFFFFF; background: var(--paprika); }
-.chip--neutral  { color: var(--ink); background: var(--saffron); }
-.chip--positive { color: #FFFFFF; background: var(--pine); }
+.chip--negative { color: #FFFFFF; background: var(--brick); }
+.chip--neutral  { color: var(--ink); background: #C9CDD3; }
+.chip--positive { color: #FFFFFF; background: var(--slate); }
 @keyframes journey-in {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: none; }
@@ -613,9 +613,9 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     height: 2.1rem;
     margin-bottom: 1rem;
     border-radius: 50%;
-    color: var(--pine);
+    color: var(--graphite);
     background: rgba(255,255,255,0.85);
-    border: 1px solid rgba(14,74,57,0.18);
+    border: 1px solid rgba(26,29,33,0.18);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
 }
@@ -646,25 +646,25 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
 
 .section-eyebrow,
 .card-label {
-    color: var(--pine);
+    color: var(--muted);
     font-size: 0.84rem;
     font-weight: 600;
     letter-spacing: 0;
     text-transform: none;
 }
 
-/* ---------- Decision summary: tinted pine glass ---------------------- */
+/* ---------- Decision summary: smoked glass --------------------------- */
 .decision-summary {
     margin: 1.2rem 0;
     padding: 1.4rem 1.6rem;
     border-radius: var(--r-lg);
-    background: linear-gradient(140deg, rgba(14,74,57,0.88) 0%, rgba(42,102,83,0.78) 100%);
+    background: linear-gradient(145deg, rgba(36,40,46,0.82) 0%, rgba(58,64,72,0.70) 100%);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid rgba(255,255,255,0.25);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 24px 48px -26px rgba(14,74,57,0.7);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 24px 48px -26px rgba(26,29,33,0.7);
 }
-.decision-summary .card-label { color: #F3D9A4; }
+.decision-summary .card-label { color: #D5D9DE; }
 .decision-summary p {
     max-width: 72ch;
     margin: 0.4rem 0 0;
@@ -698,7 +698,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     left: 0; top: 1.2rem; bottom: 1.2rem;
     width: 4px;
     border-radius: 0 4px 4px 0;
-    background: var(--paprika);
+    background: var(--brick);
 }
 .priority-card__head {
     display: flex;
@@ -716,7 +716,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     height: 2.6rem;
     border-radius: 50%;
     color: #FFFFFF;
-    background: var(--paprika);
+    background: var(--brick);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     font-size: 0.9rem;
     font-weight: 700;
@@ -726,8 +726,8 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     margin-bottom: 0.8rem;
     padding: 0.95rem 1.1rem;
     border-radius: var(--r-md);
-    background: rgba(180,71,47,0.07);
-    border: 1px solid rgba(180,71,47,0.12);
+    background: rgba(164,72,58,0.07);
+    border: 1px solid rgba(164,72,58,0.12);
 }
 .priority-evidence p,
 .priority-grid p,
@@ -757,7 +757,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
     left: 0; top: 1rem; bottom: 1rem;
     width: 4px;
     border-radius: 0 4px 4px 0;
-    background: var(--pine);
+    background: var(--slate);
 }
 
 .driver-card {
@@ -786,7 +786,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
 .driver-comparison div:not(.driver-arrow) { display: flex; flex-direction: column; }
 .driver-comparison span,
 .driver-comparison small { color: var(--muted); font-size: 0.8rem; }
-.driver-comparison strong { margin: 0.2rem 0; color: var(--paprika-text); font-size: 1.35rem; }
+.driver-comparison strong { margin: 0.2rem 0; color: var(--brick-text); font-size: 1.35rem; }
 .driver-arrow { color: var(--muted); font-size: 1.3rem; }
 
 /* ---------- Market explorer ----------------------------------------- */
@@ -808,7 +808,7 @@ textarea { font-size: 1rem !important; line-height: 1.55 !important; }
 .app-footer {
     margin-top: 3.2rem;
     padding-top: 1.2rem;
-    border-top: 1px solid rgba(14,74,57,0.12);
+    border-top: 1px solid rgba(26,29,33,0.12);
     color: var(--muted);
     font-size: 0.82rem;
 }
@@ -857,8 +857,8 @@ def apply_style():
 def render_sidebar_brand():
     st.sidebar.markdown(
         '<div class="sidebar-brand"><div class="sidebar-brand__mark" aria-hidden="true"></div>'
-        '<div><strong>Madrid Restaurant Intelligence</strong>'
-        '<span>Reviews into decisions</span></div></div>',
+        '<div><strong><b>Madrid</b>Intelligence</strong>'
+        '<span>Restaurant reviews into decisions</span></div></div>',
         unsafe_allow_html=True)
 
 
@@ -932,7 +932,7 @@ def style_figure(figure, height=None):
                 'font': {'size': 13, 'color': COLORS['muted']},
                 'title': {'font': {'size': 13, 'color': COLORS['muted']}, 'side': 'left'},
                 'bgcolor': 'rgba(0,0,0,0)'},
-        hoverlabel={'bgcolor': 'rgba(255,255,255,0.95)', 'bordercolor': 'rgba(14,74,57,0.25)',
+        hoverlabel={'bgcolor': 'rgba(255,255,255,0.95)', 'bordercolor': 'rgba(26,29,33,0.25)',
                     'font': {'family': FONT, 'color': COLORS['ink'], 'size': 14}},
         margin={'l': 20, 'r': 24, 't': top_margin, 'b': 20},
         bargap=0.32,
@@ -944,9 +944,9 @@ def style_figure(figure, height=None):
         figure.update_layout(height=height)
 
     axis_style = {
-        'gridcolor': 'rgba(14,74,57,0.09)',
-        'zerolinecolor': 'rgba(14,74,57,0.28)',
-        'linecolor': 'rgba(14,74,57,0.18)',
+        'gridcolor': 'rgba(26,29,33,0.09)',
+        'zerolinecolor': 'rgba(26,29,33,0.28)',
+        'linecolor': 'rgba(26,29,33,0.18)',
         'tickfont': {'color': COLORS['muted']},
         'title': {'font': {'color': COLORS['muted'], 'size': 13}},
     }
